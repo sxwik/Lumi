@@ -1,351 +1,670 @@
 # CONTEXT.md
 
-## Purpose
+# Lumi Cognitive Context Specification
 
-This document explains how Lumi processes information at the lowest practical level.
+Version: 0.1
 
-Unlike README.md, which describes the project, and ARCHITECTURE.md, which describes the system layout, CONTEXT.md explains how data moves through Lumi internally.
-
----
-
-# Processing Pipeline
-
-When a user submits input:
-
-```text
-User Input
-    ↓
-Input Capture
-    ↓
-Normalization
-    ↓
-Understanding
-    ↓
-Context Expansion
-    ↓
-Memory Retrieval
-    ↓
-Reasoning
-    ↓
-Response Construction
-    ↓
-Output
-```
-
-Every stage transforms information into a more useful representation.
+Status: Experimental
 
 ---
 
-# Stage 1: Input Capture
+# Overview
+
+Context is the central mechanism that powers Lumi.
+
+Everything inside Lumi exists as context.
+
+Input is context.
+
+Memory is context.
+
+Knowledge is context.
+
+Reasoning is context.
+
+Responses are generated from context.
+
+Unlike traditional systems that process text and immediately generate output, Lumi attempts to construct an internal representation of the world before generating a response.
+
+---
+
+# Core Principle
+
+Traditional Systems
+
+Input
+→ Processing
+→ Output
+
+Lumi
+
+Input
+→ Understanding
+→ Context Construction
+→ Memory Integration
+→ Reasoning
+→ Response
+
+The response is a byproduct.
+
+Context is the primary objective.
+
+---
+
+# What Is Context?
+
+Context is the temporary world model Lumi builds during processing.
 
 Example:
 
-```text
-What is recursion?
-```
+User:
 
-The CLI receives raw text.
+"What is recursion?"
 
-Raw Object:
+Raw Text:
 
-```json
+"What is recursion?"
+
+Context Representation:
+
 {
-  "text": "What is recursion?",
-  "timestamp": 1750000000,
-  "session": "abc123"
+topic: "recursion",
+category: "computer science",
+intent: "definition",
+confidence: 0.98
 }
-```
 
-Nothing is understood yet.
+The text itself is not important.
 
-The message is only data.
-
----
-
-# Stage 2: Normalization
-
-Purpose:
-
-Convert different input forms into a standardized structure.
-
-Example:
-
-```text
-WHAT IS RECURSION???
-```
-
-becomes:
-
-```text
-what is recursion
-```
-
-Tasks:
-
-* Remove noise
-* Normalize spacing
-* Normalize punctuation
-* Standardize formatting
-
-Output:
-
-```json
-{
-  "normalized": "what is recursion"
-}
-```
-
----
-
-# Stage 3: Understanding Engine
-
-Purpose:
-
-Convert text into concepts.
-
-Input:
-
-```text
-what is recursion
-```
-
-Extraction:
-
-```json
-{
-  "intent": "definition",
-  "subject": "recursion"
-}
-```
-
-Internal Representation:
-
-```json
-{
-  "concepts": [
-    "recursion"
-  ]
-}
-```
-
-The goal is to understand meaning rather than words.
-
----
-
-# Stage 4: Context Expansion
-
-Purpose:
-
-Gather additional information relevant to the request.
-
-Example:
-
-```text
-what is recursion
-```
-
-Expands to:
-
-```json
-{
-  "topic": "computer science",
-  "related": [
-    "functions",
-    "call stack",
-    "algorithms"
-  ]
-}
-```
-
-The system builds a broader context window.
-
----
-
-# Stage 5: Memory Retrieval
-
-Purpose:
-
-Search existing knowledge.
-
-Memory Layers:
-
-## Session Memory
-
-Current conversation.
-
-Example:
-
-```json
-{
-  "recent_topic": "programming"
-}
-```
-
-## Long-Term Memory
-
-Persistent facts.
-
-Example:
-
-```json
-{
-  "recursion": {
-    "category": "computer science"
-  }
-}
-```
-
-## Knowledge Graph
-
-Relationships.
-
-Example:
-
-```text
-Recursion
- ├── Function
- ├── Stack
- └── Algorithm
-```
-
----
-
-# Stage 6: Reasoning Engine
-
-Purpose:
-
-Transform information into conclusions.
-
-Inputs:
-
-```json
-{
-  "concept": "recursion",
-  "related": [
-    "functions",
-    "stack"
-  ]
-}
-```
-
-Reasoning Steps:
-
-1. Gather facts
-2. Connect concepts
-3. Resolve contradictions
-4. Build explanation
-
-Output:
-
-```json
-{
-  "explanation_ready": true
-}
-```
-
----
-
-# Stage 7: Response Construction
-
-Purpose:
-
-Convert reasoning output into human language.
-
-Internal:
-
-```json
-{
-  "meaning": "A function calling itself..."
-}
-```
-
-Response Builder:
-
-```text
-Recursion is a technique where a function
-solves a problem by calling itself.
-```
+The meaning extracted from the text is important.
 
 ---
 
 # Internal Context Object
 
-Every stage contributes to a shared object.
+Every request creates a Context Object.
 
 Example:
 
-```json
 {
-  "input": "...",
-  "intent": "...",
-  "concepts": [],
-  "memory": [],
-  "relationships": [],
-  "reasoning": [],
-  "response": null
+session: {},
+input: {},
+concepts: [],
+entities: [],
+relationships: [],
+memories: [],
+reasoning: [],
+response: null
 }
-```
 
-This object acts as Lumi's temporary working memory.
+This object exists only during processing.
 
----
-
-# Future Context System
-
-Current:
-
-```text
-Message
- → Response
-```
-
-Future:
-
-```text
-Message
- → Understanding
- → Memory
- → Reflection
- → Reasoning
- → Response
- → Learning
-```
-
-Each interaction updates the internal model.
+After completion important portions may be stored in memory.
 
 ---
 
-# Distributed Context (Newrex Grid)
+# Processing Lifecycle
 
-Future Design:
+A request moves through multiple phases.
 
-```text
-Node A
- ↔
- Node B
- ↔
- Node C
-```
+Phase 1:
+Input Acquisition
 
-Each node can:
+Phase 2:
+Normalization
 
-* Share memories
-* Exchange concepts
-* Replicate knowledge
-* Synchronize context
+Phase 3:
+Understanding
 
-Goal:
+Phase 4:
+Context Construction
 
-A distributed cognitive network rather than a single isolated agent.
+Phase 5:
+Memory Retrieval
+
+Phase 6:
+Reasoning
+
+Phase 7:
+Response Synthesis
+
+Phase 8:
+Learning
 
 ---
 
-# Design Principle
+# Phase 1: Input Acquisition
 
-Lumi does not treat text as words.
+Purpose:
 
-Lumi attempts to transform text into concepts, concepts into relationships, relationships into understanding, and understanding into responses.
+Receive information.
 
-The objective is not prediction.
+Sources:
 
-The objective is construction of an internal world model.
+* CLI
+* API
+* File
+* Future GUI
+* Future Voice Interface
+
+Example:
+
+lumi ask "What is recursion?"
+
+Output:
+
+{
+source: "cli",
+text: "What is recursion?"
+}
+
+---
+
+# Phase 2: Normalization
+
+Purpose:
+
+Reduce noise.
+
+Tasks:
+
+* Remove duplicate spaces
+* Normalize punctuation
+* Normalize casing
+* Expand contractions
+* Repair malformed text
+
+Example:
+
+WHAT IS RECURSION???
+
+becomes
+
+what is recursion
+
+---
+
+# Phase 3: Understanding
+
+Purpose:
+
+Convert text into meaning.
+
+Input:
+
+what is recursion
+
+Produces:
+
+Intent:
+Definition Request
+
+Concept:
+Recursion
+
+Domain:
+Computer Science
+
+Confidence:
+98%
+
+Output:
+
+{
+intent: "define",
+concept: "recursion"
+}
+
+---
+
+# Concept Extraction
+
+Concepts are the smallest meaningful units.
+
+Example:
+
+"The red car drives quickly"
+
+Concepts:
+
+Car
+Drive
+
+Attributes:
+
+Red
+Quickly
+
+Internal Representation:
+
+{
+concepts: [
+"car",
+"drive"
+]
+}
+
+---
+
+# Entity Recognition
+
+Entities represent identifiable objects.
+
+Examples:
+
+Satwik
+Linux
+OpenAI
+India
+
+Entities are stored separately from concepts.
+
+Concept:
+Country
+
+Entity:
+India
+
+---
+
+# Relationship Extraction
+
+Meaning emerges from relationships.
+
+Example:
+
+"The cat sits on the chair"
+
+Relationships:
+
+Cat → sits_on → Chair
+
+Stored as:
+
+{
+source: "cat",
+relation: "sits_on",
+target: "chair"
+}
+
+---
+
+# Context Construction
+
+After understanding, Lumi constructs a temporary world model.
+
+Example:
+
+Question:
+
+"Why do birds fly?"
+
+Context:
+
+Bird
+Wing
+Flight
+Aerodynamics
+Evolution
+
+Related concepts are activated.
+
+The context becomes a miniature knowledge space.
+
+---
+
+# Context Expansion
+
+Purpose:
+
+Find additional relevant information.
+
+Example:
+
+Recursion
+
+Automatically activates:
+
+Function
+Stack
+Algorithm
+Base Case
+Tree Traversal
+
+This allows deeper reasoning.
+
+---
+
+# Memory System
+
+Memory provides continuity.
+
+Without memory:
+
+Each interaction is isolated.
+
+With memory:
+
+Knowledge accumulates.
+
+---
+
+# Memory Types
+
+## Session Memory
+
+Short-term memory.
+
+Stores:
+
+* Recent messages
+* Current topic
+* Temporary state
+
+Lifetime:
+
+Current session only.
+
+---
+
+## Working Memory
+
+Active processing memory.
+
+Contains:
+
+* Current concepts
+* Current reasoning chain
+* Active entities
+
+Destroyed after response generation.
+
+---
+
+## Semantic Memory
+
+Stores knowledge.
+
+Examples:
+
+Earth is a planet.
+
+Recursion is a programming technique.
+
+Linux is an operating system.
+
+---
+
+## Episodic Memory
+
+Stores events.
+
+Examples:
+
+User asked about recursion.
+
+User created a compiler project.
+
+User discussed operating systems.
+
+---
+
+## Procedural Memory
+
+Stores processes.
+
+Examples:
+
+How to compile NXL.
+
+How to start a project.
+
+How to execute a task.
+
+---
+
+# Memory Retrieval
+
+Purpose:
+
+Find relevant memories.
+
+Search Pipeline:
+
+Input
+↓
+Concept Extraction
+↓
+Memory Search
+↓
+Ranking
+↓
+Selection
+
+Only the most relevant memories enter context.
+
+---
+
+# Reasoning Engine
+
+Purpose:
+
+Transform knowledge into conclusions.
+
+Reasoning consists of:
+
+* Deduction
+* Induction
+* Analogy
+* Synthesis
+
+---
+
+# Deductive Reasoning
+
+Facts:
+
+Birds can fly.
+
+Sparrow is a bird.
+
+Conclusion:
+
+Sparrow can fly.
+
+---
+
+# Inductive Reasoning
+
+Examples:
+
+Dog has legs.
+
+Cat has legs.
+
+Horse has legs.
+
+Conclusion:
+
+Many animals have legs.
+
+---
+
+# Analogical Reasoning
+
+Known:
+
+CPU is like a brain.
+
+New Concept:
+
+Scheduler
+
+Analogy:
+
+Scheduler acts like traffic control.
+
+---
+
+# Synthesis
+
+Combine multiple ideas.
+
+Inputs:
+
+Memory
+Knowledge
+Context
+
+Output:
+
+New explanation.
+
+---
+
+# Response Synthesis
+
+Purpose:
+
+Convert internal structures into language.
+
+Input:
+
+Structured knowledge.
+
+Output:
+
+Human-readable response.
+
+Example:
+
+Internal:
+
+{
+concept: "recursion",
+relation: "self-reference"
+}
+
+Response:
+
+Recursion is a technique where a function solves a problem by calling itself.
+
+---
+
+# Learning Layer
+
+Future Component.
+
+Purpose:
+
+Improve internal models.
+
+Steps:
+
+1. Observe result
+2. Evaluate quality
+3. Update knowledge
+4. Store useful information
+
+---
+
+# Reflection Layer
+
+Future Component.
+
+Purpose:
+
+Self-review.
+
+Questions:
+
+Did the response answer the question?
+
+Was reasoning correct?
+
+Was memory useful?
+
+Can understanding improve?
+
+---
+
+# Knowledge Graph
+
+Future Component.
+
+Knowledge is represented as nodes.
+
+Example:
+
+Programming
+├── Algorithms
+├── Data Structures
+└── Recursion
+
+Nodes connect through relationships.
+
+The graph becomes Lumi's internal map of understanding.
+
+---
+
+# Context Compression
+
+Large contexts cannot grow forever.
+
+Compression converts:
+
+Many details
+↓
+Summary
+↓
+Core meaning
+
+This preserves knowledge while reducing size.
+
+---
+
+# Context Persistence
+
+Important context may be stored.
+
+Criteria:
+
+* Frequently referenced
+* High confidence
+* Long-term relevance
+
+---
+
+# Failure States
+
+Possible failures:
+
+* Incorrect understanding
+* Missing memory
+* Weak reasoning
+* Conflicting information
+
+Recovery:
+
+* Re-evaluate context
+* Search additional memories
+* Reconstruct reasoning chain
+
+---
+
+# Long-Term Vision
+
+Lumi is not intended to be a chatbot.
+
+Lumi is intended to become a cognitive system capable of:
+
+* Understanding information
+* Building internal models
+* Maintaining memory
+* Forming relationships
+* Reasoning over knowledge
+* Continuously improving understanding
+
+Context is the foundation of every capability.
+
+Everything Lumi becomes begins with context.
