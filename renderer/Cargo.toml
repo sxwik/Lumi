@@ -1,0 +1,8 @@
+[package]
+name = "lumi-renderer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lumi-parser = { path = "../parser" }
+egui = "0.27"

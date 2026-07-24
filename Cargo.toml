@@ -1,0 +1,10 @@
+[workspace]
+members = [
+    "protocol",
+    "parser",
+    "renderer",
+    "server",
+    "browser",
+    "cli",
+]
+resolver = "2"

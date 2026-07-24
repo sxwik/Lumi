@@ -1,0 +1,53 @@
+# ==========================================
+# Lumi - .gitignore
+# ==========================================
+
+# Rust build artifacts
+/target/
+**/target/
+
+# Backup files
+*.bak
+*.tmp
+*.old
+*.orig
+
+# Logs
+*.log
+
+# IDE Settings
+.vscode/
+.idea/
+.fleet/
+.vs/
+
+# OS Files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Environment
+.env
+.env.*
+
+# Temporary files
+tmp/
+temp/
+
+# Rust Analyzer
+rust-project.json
+
+# Coverage
+coverage/
+*.profraw
+*.profdata
+default.profraw
+
+# Package outputs
+*.lpkg
+
+# Extension packages
+*.lpx
+
+# Local Lumi configuration
+lumi.toml
