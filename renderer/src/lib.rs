@@ -8,8 +8,37 @@ pub struct RenderOptions {
 
 pub fn render_page(ui: &mut Ui, root: &LumiNode, options: &mut RenderOptions) {
     egui::ScrollArea::vertical().show(ui, |ui| {
-        ui.spacing_mut().item_spacing = Vec2::new(8.0, 10.0);
-        render_node(ui, root, options);
+        ui.spacing_mut().item_spacing = Vec2::new(0.0, 12.0);
+        let max_width = 880.0;
+        let margin = ((ui.available_width() - max_width) / 2.0).max(16.0);
+        
+        ui.horizontal(|ui| {
+            ui.add_space(margin);
+            ui.vertical(|ui| {
+                ui.set_max_width(max_width);
+                render_node(ui, root, options);
+            });
+            ui.add_space(margin);
+        });
+    });
+}
+
+pub fn render_markdown(ui: &mut Ui, markdown: &str, options: &mut RenderOptions) {
+    egui::ScrollArea::vertical().show(ui, |ui| {
+        ui.spacing_mut().item_spacing = Vec2::new(0.0, 12.0);
+        let max_width = 880.0;
+        let margin = ((ui.available_width() - max_width) / 2.0).max(16.0);
+        
+        ui.horizontal(|ui| {
+            ui.add_space(margin);
+            ui.vertical(|ui| {
+                ui.set_max_width(max_width);
+                let mut cache = egui_commonmark::CommonMarkCache::default();
+                egui_commonmark::CommonMarkViewer::new("lumi_md_viewer")
+                    .show(ui, &mut cache, markdown);
+            });
+            ui.add_space(margin);
+        });
     });
 }
 
@@ -48,8 +77,9 @@ fn render_node(ui: &mut Ui, node: &LumiNode, options: &mut RenderOptions) {
             ui.label(
                 RichText::new(text)
                     .size(15.0)
-                    .color(Color32::from_rgb(180, 190, 205)),
+                    .color(Color32::from_rgb(160, 175, 195)),
             );
+            ui.add_space(4.0);
         }
         ElementType::Text => {
             let text = node.value.as_deref().unwrap_or("");
@@ -57,50 +87,51 @@ fn render_node(ui: &mut Ui, node: &LumiNode, options: &mut RenderOptions) {
         }
         ElementType::Button => {
             let text = extract_text(node);
-            let goto_url = node
-                .get_attr("goto")
-                .or_else(|| {
-                    node.children.iter().find_map(|c| c.get_attr("goto"))
-                });
+            let goto_url = extract_goto(node);
 
             let btn = egui::Button::new(
                 RichText::new(if text.is_empty() { "Click" } else { &text })
-                    .size(15.0)
-                    .color(Color32::WHITE),
+                    .size(14.0)
+                    .color(Color32::from_rgb(100, 180, 255)),
             )
-            .fill(Color32::from_rgb(60, 110, 220))
+            .fill(Color32::from_rgb(32, 42, 58))
             .rounding(6.0);
 
             if ui.add(btn).clicked() {
                 if let Some(target) = goto_url {
-                    options.pending_navigation = Some(target.to_string());
+                    options.pending_navigation = Some(target);
                 }
             }
+            ui.add_space(4.0);
         }
         ElementType::List => {
-            ui.indent("lumi_list", |ui| {
-                for child in &node.children {
-                    render_node(ui, child, options);
-                }
-            });
+            ui.add_space(4.0);
+            for child in &node.children {
+                render_node(ui, child, options);
+            }
+            ui.add_space(4.0);
         }
         ElementType::Item => {
             let text = extract_text(node);
             ui.horizontal(|ui| {
-                ui.label(RichText::new("•").color(Color32::from_rgb(100, 180, 255)));
-                ui.label(RichText::new(text).size(15.0));
+                ui.label(RichText::new("✓").color(Color32::from_rgb(80, 200, 140)));
+                ui.add_space(6.0);
+                ui.label(RichText::new(text).size(14.0).color(Color32::from_rgb(200, 210, 225)));
             });
         }
         ElementType::Container => {
+            ui.add_space(6.0);
             egui::Frame::none()
-                .fill(Color32::from_rgb(25, 30, 42))
+                .fill(Color32::from_rgb(24, 30, 42))
                 .rounding(8.0)
-                .inner_margin(12.0)
+                .stroke(egui::Stroke::new(1.0, Color32::from_rgb(38, 48, 68)))
+                .inner_margin(16.0)
                 .show(ui, |ui| {
                     for child in &node.children {
                         render_node(ui, child, options);
                     }
                 });
+            ui.add_space(6.0);
         }
         ElementType::Row => {
             ui.horizontal(|ui| {
@@ -117,7 +148,9 @@ fn render_node(ui: &mut Ui, node: &LumiNode, options: &mut RenderOptions) {
             });
         }
         ElementType::Divider => {
+            ui.add_space(8.0);
             ui.separator();
+            ui.add_space(8.0);
         }
         ElementType::Badge => {
             let text = extract_text(node);
@@ -153,17 +186,27 @@ fn render_node(ui: &mut Ui, node: &LumiNode, options: &mut RenderOptions) {
 
 fn extract_text(node: &LumiNode) -> String {
     if let Some(ref val) = node.value {
-        return val.clone();
-    }
-    for child in &node.children {
-        if child.element_type == ElementType::Text {
-            if let Some(ref val) = child.value {
-                return val.clone();
-            }
-        }
-        if let Some(ref val) = child.value {
+        if !val.is_empty() {
             return val.clone();
         }
     }
+    for child in &node.children {
+        let text = extract_text(child);
+        if !text.is_empty() {
+            return text;
+        }
+    }
     String::new()
+}
+
+fn extract_goto(node: &LumiNode) -> Option<String> {
+    if let Some(url) = node.get_attr("goto") {
+        return Some(url.to_string());
+    }
+    for child in &node.children {
+        if let Some(url) = extract_goto(child) {
+            return Some(url);
+        }
+    }
+    None
 }

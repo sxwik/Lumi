@@ -11,10 +11,15 @@ use std::net::TcpStream;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 
+enum PageContent {
+    LumiMl(LumiNode),
+    Markdown(String),
+}
+
 struct Tab {
     title: String,
     url: String,
-    content: Option<LumiNode>,
+    content: Option<PageContent>,
     raw_payload: String,
     error: Option<String>,
     history_back: Vec<String>,
@@ -40,7 +45,7 @@ enum NetworkResponse {
         tab_index: usize,
         url: String,
         payload: Vec<u8>,
-        raw_ast: Result<LumiNode, String>,
+        page_content: Result<PageContent, String>,
     },
     Error {
         tab_index: usize,
@@ -88,9 +93,14 @@ impl LumiApp {
             while let Ok((tab_index, url_str)) = req_rx.recv() {
                 match LumiUri::parse(&url_str) {
                     Ok(uri) => {
+                        println!("[LNS] Resolving domain '{}'...", uri.host);
                         let resolved_addr = match lns.resolve(&uri.host) {
-                            Ok(addr) => addr,
+                            Ok(addr) => {
+                                println!("[LNS] Resolved '{}' -> {}", uri.host, addr);
+                                addr
+                            }
                             Err(e) => {
+                                eprintln!("[LNS] Resolution failed for '{}': {}", uri.host, e);
                                 let _ = res_tx.send(NetworkResponse::Error {
                                     tab_index,
                                     url: url_str.clone(),
@@ -106,11 +116,14 @@ impl LumiApp {
                         };
 
                         if need_new {
+                            println!("[LMP] Connecting to persistent socket {}...", resolved_addr);
                             match TcpStream::connect(&resolved_addr) {
                                 Ok(stream) => {
+                                    println!("[LMP] Connected to {}", resolved_addr);
                                     current_stream = Some((resolved_addr.clone(), stream));
                                 }
                                 Err(e) => {
+                                    eprintln!("[LMP] Connection failed: {}", e);
                                     let _ = res_tx.send(NetworkResponse::Error {
                                         tab_index,
                                         url: url_str.clone(),
@@ -122,6 +135,7 @@ impl LumiApp {
                         }
 
                         if let Some((_, ref mut stream)) = current_stream {
+                            println!("[LMP] Sending GET request for '{}'...", url_str);
                             let req = LmpMessage::new_request(&url_str, 1);
                             if let Err(e) = req.write_to(stream) {
                                 current_stream = None;
@@ -133,25 +147,42 @@ impl LumiApp {
                                 continue;
                             }
 
+                            println!("[LMP] Receiving LMP frame response...");
                             match LmpMessage::read_from(stream) {
                                 Ok(res) => {
-                                    let (lml_code, raw_bytes) = if res.header.content_type == "application/lpkg" {
+                                    println!("[LMP] Frame received! Payload size: {} bytes, Content-Type: {}", res.payload.len(), res.header.content_type);
+                                    let raw_bytes = res.payload.clone();
+
+                                    let page_content: Result<PageContent, String> = if res.header.content_type == "text/markdown" {
+                                        let md_src = String::from_utf8_lossy(&res.payload).to_string();
+                                        Ok(PageContent::Markdown(md_src))
+                                    } else if res.header.content_type == "application/lpkg" {
                                         match LumiPackage::from_bytes(&res.payload) {
-                                            Ok(pkg) => (pkg.index_lml, res.payload),
-                                            Err(e) => (format!("Error unpacking .lpkg: {}", e), res.payload),
+                                            Ok(pkg) => {
+                                                if let Some(ref md_src) = pkg.index_md {
+                                                    Ok(PageContent::Markdown(md_src.clone()))
+                                                } else if let Some(ref lml_src) = pkg.index_lml {
+                                                    lumi_parser::parse(lml_src)
+                                                        .map(PageContent::LumiMl)
+                                                        .map_err(|e| format!("LumiML Parse Error: {}", e))
+                                                } else {
+                                                    Err("Package does not contain index.md or index.lml".to_string())
+                                                }
+                                            }
+                                            Err(e) => Err(format!("Error unpacking .lpkg: {}", e)),
                                         }
                                     } else {
-                                        (String::from_utf8_lossy(&res.payload).to_string(), res.payload)
+                                        let lml_code = String::from_utf8_lossy(&res.payload).to_string();
+                                        lumi_parser::parse(&lml_code)
+                                            .map(PageContent::LumiMl)
+                                            .map_err(|e| format!("LumiML Parse Error: {}", e))
                                     };
-
-                                    let parsed_ast = lumi_parser::parse(&lml_code)
-                                        .map_err(|e| format!("LumiML Parse Error: {}", e));
 
                                     let _ = res_tx.send(NetworkResponse::Success {
                                         tab_index,
                                         url: url_str,
                                         payload: raw_bytes,
-                                        raw_ast: parsed_ast,
+                                        page_content,
                                     });
                                 }
                                 Err(e) => {
@@ -242,30 +273,42 @@ impl LumiApp {
                     tab_index,
                     url,
                     payload,
-                    raw_ast,
+                    page_content,
                 } => {
                     if tab_index < self.tabs.len() {
                         let tab = &mut self.tabs[tab_index];
                         tab.raw_payload = format!("[LMP Payload: {} bytes]\n\n{}", payload.len(), String::from_utf8_lossy(&payload));
 
-                        match raw_ast {
-                            Ok(ast) => {
-                                if let Some(title_node) = ast
-                                    .children
-                                    .iter()
-                                    .find(|c| c.element_type == lumi_parser::ElementType::Title)
-                                {
-                                    if let Some(val) = title_node
-                                        .value
-                                        .as_ref()
-                                        .or_else(|| title_node.children.first().and_then(|c| c.value.as_ref()))
-                                    {
-                                        tab.title = val.clone();
+                        match page_content {
+                            Ok(content) => {
+                                match &content {
+                                    PageContent::LumiMl(ast) => {
+                                        if let Some(title_node) = ast
+                                            .children
+                                            .iter()
+                                            .find(|c| c.element_type == lumi_parser::ElementType::Title)
+                                        {
+                                            if let Some(val) = title_node
+                                                .value
+                                                .as_ref()
+                                                .or_else(|| title_node.children.first().and_then(|c| c.value.as_ref()))
+                                            {
+                                                tab.title = val.clone();
+                                            }
+                                        } else {
+                                            tab.title = url.clone();
+                                        }
                                     }
-                                } else {
-                                    tab.title = url.clone();
+                                    PageContent::Markdown(md_text) => {
+                                        let first_line = md_text.lines().find(|l| l.starts_with("# "));
+                                        if let Some(title) = first_line {
+                                            tab.title = title.trim_start_matches("# ").to_string();
+                                        } else {
+                                            tab.title = url.clone();
+                                        }
+                                    }
                                 }
-                                tab.content = Some(ast);
+                                tab.content = Some(content);
                                 tab.error = None;
                             }
                             Err(e) => {
@@ -504,9 +547,16 @@ impl eframe::App for LumiApp {
                     ui.add_space(20.0);
                     ui.label("Run 'cargo run -p lumid' to launch the Lumi network server daemon.");
                 });
-            } else if let Some(ref ast) = tab.content {
+            } else if let Some(ref content) = tab.content {
                 let mut options = RenderOptions::default();
-                lumi_renderer::render_page(ui, ast, &mut options);
+                match content {
+                    PageContent::LumiMl(ast) => {
+                        lumi_renderer::render_page(ui, ast, &mut options);
+                    }
+                    PageContent::Markdown(md_text) => {
+                        lumi_renderer::render_markdown(ui, md_text, &mut options);
+                    }
+                }
                 if let Some(target_url) = options.pending_navigation {
                     next_nav = Some(target_url);
                 }

@@ -32,13 +32,18 @@ pub struct LnsResolver {
 impl LnsResolver {
     pub fn new() -> Self {
         let mut records = HashMap::new();
-        // Built-in default .lumi domain routes
+        records.insert("welcome.lumi".to_string(), "127.0.0.1:9001".to_string());
+        records.insert("search.lumi".to_string(), "127.0.0.1:9001".to_string());
         records.insert("docs.lumi".to_string(), "127.0.0.1:9001".to_string());
         records.insert("chat.lumi".to_string(), "127.0.0.1:9001".to_string());
         records.insert("gallery.lumi".to_string(), "127.0.0.1:9001".to_string());
+        records.insert("games.lumi".to_string(), "127.0.0.1:9001".to_string());
+        records.insert("wiki.lumi".to_string(), "127.0.0.1:9001".to_string());
         records.insert("store.lumi".to_string(), "127.0.0.1:9001".to_string());
 
         // Backwards compatibility for .home
+        records.insert("welcome.home".to_string(), "127.0.0.1:9001".to_string());
+        records.insert("search.home".to_string(), "127.0.0.1:9001".to_string());
         records.insert("docs.home".to_string(), "127.0.0.1:9001".to_string());
         records.insert("chat.home".to_string(), "127.0.0.1:9001".to_string());
         records.insert("gallery.home".to_string(), "127.0.0.1:9001".to_string());
@@ -265,16 +270,28 @@ impl LmpMessage {
 pub struct LumiPackage {
     pub name: String,
     pub version: String,
-    pub index_lml: String,
+    pub index_lml: Option<String>,
+    pub index_md: Option<String>,
     pub assets: HashMap<String, Vec<u8>>,
 }
 
 impl LumiPackage {
-    pub fn new(name: &str, index_lml: &str) -> Self {
+    pub fn new_lml(name: &str, index_lml: &str) -> Self {
         Self {
             name: name.to_string(),
             version: "0.1.0".to_string(),
-            index_lml: index_lml.to_string(),
+            index_lml: Some(index_lml.to_string()),
+            index_md: None,
+            assets: HashMap::new(),
+        }
+    }
+
+    pub fn new_md(name: &str, index_md: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            version: "0.1.0".to_string(),
+            index_md: Some(index_md.to_string()),
+            index_lml: None,
             assets: HashMap::new(),
         }
     }

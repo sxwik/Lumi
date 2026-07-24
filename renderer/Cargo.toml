@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 lumi-parser = { path = "../parser" }
 egui = "0.27"
+egui_commonmark = "0.15"

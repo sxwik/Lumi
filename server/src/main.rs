@@ -87,168 +87,158 @@ fn handle_connection(
 fn route_default_pages(host: &str, path: &str) -> (&'static str, Vec<u8>) {
     match (host, path) {
         ("welcome.lumi", _) | ("welcome.home", _) => {
-            let pkg = LumiPackage::new("Welcome Portal", WELCOME_PAGE);
+            let pkg = LumiPackage::new_md("Welcome Portal", WELCOME_MD);
             ("application/lpkg", pkg.to_bytes().unwrap())
         }
         ("search.lumi", _) | ("search.home", _) => {
-            let pkg = LumiPackage::new("Lumi Search", SEARCH_PAGE);
+            let pkg = LumiPackage::new_md("Lumi Search", SEARCH_MD);
             ("application/lpkg", pkg.to_bytes().unwrap())
         }
         ("docs.lumi", _) | ("docs.home", _) => {
-            let pkg = LumiPackage::new("Docs", DOCS_PAGE);
+            let pkg = LumiPackage::new_md("Docs", DOCS_MD);
             ("application/lpkg", pkg.to_bytes().unwrap())
         }
         ("chat.lumi", _) | ("chat.home", _) => {
-            let pkg = LumiPackage::new("Encrypted Chat", CHAT_PAGE);
+            let pkg = LumiPackage::new_lml("Encrypted Chat", CHAT_PAGE);
             ("application/lpkg", pkg.to_bytes().unwrap())
         }
         ("gallery.lumi", _) | ("gallery.home", _) => {
-            let pkg = LumiPackage::new("Gallery", GALLERY_PAGE);
+            let pkg = LumiPackage::new_lml("Gallery", GALLERY_PAGE);
             ("application/lpkg", pkg.to_bytes().unwrap())
         }
         ("games.lumi", _) => {
-            let pkg = LumiPackage::new("Lumi Arcade", GAMES_PAGE);
+            let pkg = LumiPackage::new_lml("Lumi Arcade", GAMES_PAGE);
             ("application/lpkg", pkg.to_bytes().unwrap())
         }
         ("wiki.lumi", _) => {
-            let pkg = LumiPackage::new("Lumi Wiki", WIKI_PAGE);
+            let pkg = LumiPackage::new_md("Lumi Wiki", WIKI_MD);
             ("application/lpkg", pkg.to_bytes().unwrap())
         }
         _ => {
-            let pkg = LumiPackage::new("Welcome Portal", WELCOME_PAGE);
+            let pkg = LumiPackage::new_md("Welcome Portal", WELCOME_MD);
             ("application/lpkg", pkg.to_bytes().unwrap())
         }
     }
 }
 
-const WELCOME_PAGE: &str = r#"
-page {
-    title "Welcome to Lumi Network"
+const WELCOME_MD: &str = r#"# The Lumi Project
 
-    badge {
-        text "Lumi v0.3 Public Network Prototype"
-    }
+> **Lumi Ecosystem Specification • v0.4.0-alpha**
 
-    heading {
-        text "The Open Privacy Web"
-    }
+An experimental, open-source, privacy-first web ecosystem built from scratch in Rust by **Satwik Bajpai**.
 
-    paragraph {
-        text "No Chromium. No Electron. No HTML/JS/CSS. Just pure Rust binary LMP protocol and LumiML."
-    }
+---
 
-    divider {}
+## Overview
 
-    container {
-        heading {
-            text "Registered Network Sites"
-        }
-        list {
-            item { text "lumi://welcome.lumi - Ecosystem Entrance" }
-            item { text "lumi://search.lumi - Decentralized Search Index" }
-            item { text "lumi://docs.lumi - Protocol & RFC Documentation" }
-            item { text "lumi://games.lumi - Native Arcade Showcase" }
-            item { text "lumi://wiki.lumi - Community Knowledgebase" }
-        }
-    }
+Lumi is an independent browsing platform consisting of a custom transport protocol (**LMP**), a lightweight document layout language (**LumiML**), a native CommonMark **Markdown** document renderer, and a binary packaging system (**LPKG**). The project operates with zero telemetry, zero advertising identifiers, and minimal resource footprint.
 
-    divider {}
+---
 
-    row {
-        button {
-            text "Open Lumi Search"
-            goto "lumi://search.lumi"
-        }
-        button {
-            text "Read Protocol Specs"
-            goto "lumi://docs.lumi"
-        }
-    }
-}
+## Documentation & Ecosystem Links
+
+Explore technical specifications, search indices, and sample application packages:
+
+- [📖 Documentation & RFCs](lumi://docs.lumi)
+- [🔍 Search Index](lumi://search.lumi)
+- [📦 Showcase Gallery](lumi://gallery.lumi)
+- [🎮 Lumi Arcade](lumi://games.lumi)
+- [📚 Open Wiki](lumi://wiki.lumi)
+
+---
+
+## System Implementation Status
+
+| Component | Architecture | Status |
+|---|---|---|
+| **Browser Daemon** | Native `egui` / `wgpu` | Active |
+| **LMP Protocol** | Binary Multiplexed TCP (1.0) | Active |
+| **Renderer Engine** | Dual LumiML + Native CommonMark Markdown | Active |
+| **LumiML Lexer** | AST Parser & Tokenizer | Active |
+| **Server Daemon** | `lumid` Daemon (`127.0.0.1:9001`) | Active |
+
+---
+
+## Source Code & License
+
+- **Official Repository**: [github.com/sxwik/lumi](https://github.com/sxwik/lumi)
+- **License**: Released under the **Apache License, Version 2.0**
+
+*Lumi v0.4.0-alpha • Built with Rust • Apache License 2.0*
 "#;
 
-const SEARCH_PAGE: &str = r#"
-page {
-    title "Lumi Search"
+const SEARCH_MD: &str = r#"# Search the Lumi Network
 
-    badge {
-        text "Decentralized Site Index"
-    }
+> **Decentralized Domain Index**
 
-    heading {
-        text "Search the Lumi Network"
-    }
+Privacy-first search indexing registered `.lumi` domains across the network.
 
-    paragraph {
-        text "Privacy-first search indexing registered .lumi domains."
-    }
+---
 
-    divider {}
+## Featured Ecosystem Domains
 
-    container {
-        heading {
-            text "Featured Domains"
-        }
-        list {
-            item { text "[docs.lumi] - Official LMP Core Protocol RFC Specifications" }
-            item { text "[welcome.lumi] - Main Portal & Gateway" }
-            item { text "[games.lumi] - Experimental Native Web Games" }
-            item { text "[wiki.lumi] - Open LumiML Architecture Knowledge Base" }
-            item { text "[chat.lumi] - Encrypted Peer Node Communication" }
-        }
-    }
+- [docs.lumi](lumi://docs.lumi) - Official LMP Core Protocol RFC Specifications & Architecture
+- [welcome.lumi](lumi://welcome.lumi) - Main Gateway & Ecosystem Overview
+- [games.lumi](lumi://games.lumi) - Interactive Native Web Games
+- [wiki.lumi](lumi://wiki.lumi) - Open Lumi Ecosystem Knowledgebase
+- [chat.lumi](lumi://chat.lumi) - Encrypted Peer Node Communication
+- [gallery.lumi](lumi://gallery.lumi) - Native LumiML UI Component Showcase
 
-    divider {}
+---
 
-    row {
-        button {
-            text "Explore Games"
-            goto "lumi://games.lumi"
-        }
-        button {
-            text "Visit Wiki"
-            goto "lumi://wiki.lumi"
-        }
-    }
-}
+[← Return to Welcome Portal](lumi://welcome.lumi)
 "#;
 
-const DOCS_PAGE: &str = r#"
-page {
-    title "Lumi RFC Documentation"
+const DOCS_MD: &str = r#"# Lumi Core Specifications & RFC Documentation
 
-    badge {
-        text "RFC Specifications 0001 - 0005"
-    }
+> **Official Standards (RFC 0001 - 0005)**
 
-    heading {
-        text "Official Standards"
-    }
+Lumi features formal Request for Comments (RFCs) governing protocol and ecosystem development.
 
-    paragraph {
-        text "Lumi features formal Request for Comments (RFCs) governing protocol development."
-    }
+---
 
-    container {
-        heading {
-            text "Published RFCs"
-        }
-        list {
-            item { text "RFC-0001: LMP Core Binary Protocol Specification" }
-            item { text "RFC-0002: LumiML Markup Specification & Grammar" }
-            item { text "RFC-0003: Lumi Name Service (LNS) Standard" }
-            item { text "RFC-0004: LPKG Package Envelope Format" }
-            item { text "RFC-0005: Lumi Browser Extension (.lpx) API" }
-        }
-    }
+## Published RFC Standards
 
-    divider {}
+1. **RFC-0001**: LMP Core Binary Multiplexed Protocol Standard
+2. **RFC-0002**: LumiML Markup Grammar & AST Specification
+3. **RFC-0003**: Lumi Name Service (LNS) Domain Resolution Protocol
+4. **RFC-0004**: LPKG Package Archive Format (`index.md` / `index.lml`)
+5. **RFC-0005**: Lumi Browser Extension (`.lpx`) API
 
-    button {
-        text "← Back to Search"
-        goto "lumi://search.lumi"
-    }
-}
+---
+
+## Content Type Guidelines
+
+- **Markdown (`index.md`)**: Used for documentation, RFCs, wikis, articles, blogs, and text content.
+- **LumiML (`index.lml`)**: Used for interactive applications, games, dashboards, chat, and custom UI.
+
+---
+
+[← Back to Search](lumi://search.lumi)
+"#;
+
+const WIKI_MD: &str = r#"# Lumi Ecosystem Open Wiki
+
+> **Community Architecture Knowledgebase**
+
+Learn how to build custom servers, AST parsers, and custom Lumi browser engines from open RFC standards.
+
+---
+
+## Architecture Overview
+
+Lumi decouples content presentation into two distinct engines:
+
+```
+Documentation (.md)  ──>  Native CommonMark Markdown Renderer
+Applications (.lml) ──>  LumiML AST Layout Engine
+```
+
+All network traffic is transported framed inside persistent **LMP** TCP streams.
+
+---
+
+[Read RFC Specifications](lumi://docs.lumi) | [Return Home](lumi://welcome.lumi)
 "#;
 
 const CHAT_PAGE: &str = r#"
@@ -286,29 +276,6 @@ page {
     button {
         text "Return to Search"
         goto "lumi://search.lumi"
-    }
-}
-"#;
-
-const WIKI_PAGE: &str = r#"
-page {
-    title "Lumi Open Wiki"
-
-    badge {
-        text "Community Knowledgebase"
-    }
-
-    heading {
-        text "Lumi Ecosystem Architecture"
-    }
-
-    paragraph {
-        text "Learn how to build custom servers, parsers, and custom Lumi browsers from the open RFC standards."
-    }
-
-    button {
-        text "Read RFC Specs"
-        goto "lumi://docs.lumi"
     }
 }
 "#;

@@ -30,15 +30,15 @@ mod tests {
     #[test]
     fn test_lpkg_bundle_cycle() {
         let lml = "page { title \"Test\" paragraph { text \"Hello\" } }";
-        let pkg = LumiPackage::new("TestSite", lml);
+        let pkg = LumiPackage::new_lml("TestSite", lml);
 
         let bytes = pkg.to_bytes().unwrap();
         let unpacked = LumiPackage::from_bytes(&bytes).unwrap();
 
         assert_eq!(unpacked.name, "TestSite");
-        assert_eq!(unpacked.index_lml, lml);
+        assert_eq!(unpacked.index_lml, Some(lml.to_string()));
 
-        let ast = parse(&unpacked.index_lml).unwrap();
+        let ast = parse(unpacked.index_lml.as_ref().unwrap()).unwrap();
         assert_eq!(ast.element_type, lumi_parser::ElementType::Page);
     }
 }
