@@ -85,40 +85,19 @@ fn handle_connection(
 }
 
 fn route_default_pages(host: &str, path: &str) -> (&'static str, Vec<u8>) {
-    match (host, path) {
-        ("welcome.lumi", _) | ("welcome.home", _) => {
-            let pkg = LumiPackage::new_md("Welcome Portal", WELCOME_MD);
-            ("application/lpkg", pkg.to_bytes().unwrap())
-        }
-        ("search.lumi", _) | ("search.home", _) => {
-            let pkg = LumiPackage::new_md("Lumi Search", SEARCH_MD);
-            ("application/lpkg", pkg.to_bytes().unwrap())
-        }
-        ("docs.lumi", _) | ("docs.home", _) => {
-            let pkg = LumiPackage::new_md("Docs", DOCS_MD);
-            ("application/lpkg", pkg.to_bytes().unwrap())
-        }
-        ("chat.lumi", _) | ("chat.home", _) => {
-            let pkg = LumiPackage::new_lml("Encrypted Chat", CHAT_PAGE);
-            ("application/lpkg", pkg.to_bytes().unwrap())
-        }
-        ("gallery.lumi", _) | ("gallery.home", _) => {
-            let pkg = LumiPackage::new_lml("Gallery", GALLERY_PAGE);
-            ("application/lpkg", pkg.to_bytes().unwrap())
-        }
-        ("games.lumi", _) => {
-            let pkg = LumiPackage::new_lml("Lumi Arcade", GAMES_PAGE);
-            ("application/lpkg", pkg.to_bytes().unwrap())
-        }
-        ("wiki.lumi", _) => {
-            let pkg = LumiPackage::new_md("Lumi Wiki", WIKI_MD);
-            ("application/lpkg", pkg.to_bytes().unwrap())
-        }
-        _ => {
-            let pkg = LumiPackage::new_md("Welcome Portal", WELCOME_MD);
-            ("application/lpkg", pkg.to_bytes().unwrap())
-        }
-    }
+    let pkg = match (host, path) {
+        ("welcome.lumi", _) | ("welcome.home", _) => LumiPackage::new_md("Welcome Portal", WELCOME_MD),
+        ("search.lumi", _) | ("search.home", _) => LumiPackage::new_md("Lumi Search", SEARCH_MD),
+        ("docs.lumi", _) | ("docs.home", _) => LumiPackage::new_md("Docs", DOCS_MD),
+        ("chat.lumi", _) | ("chat.home", _) => LumiPackage::new_lml("Encrypted Chat", CHAT_PAGE),
+        ("gallery.lumi", _) | ("gallery.home", _) => LumiPackage::new_lml("Gallery", GALLERY_PAGE),
+        ("games.lumi", _) => LumiPackage::new_lml("Lumi Arcade", GAMES_PAGE),
+        ("wiki.lumi", _) => LumiPackage::new_md("Lumi Wiki", WIKI_MD),
+        _ => LumiPackage::new_md("Welcome Portal", WELCOME_MD),
+    };
+
+    let bytes = pkg.to_bytes().unwrap_or_default();
+    ("application/lpkg", bytes)
 }
 
 const WELCOME_MD: &str = r#"# The Lumi Project

@@ -366,4 +366,57 @@ mod tests {
         assert_eq!(ast.children[0].element_type, ElementType::Title);
         assert_eq!(ast.children[3].children[1].get_attr("goto"), Some("lumi://docs.home"));
     }
+
+    #[test]
+    fn test_element_type_mappings() {
+        assert_eq!(ElementType::from_str("page"), ElementType::Page);
+        assert_eq!(ElementType::from_str("button"), ElementType::Button);
+        assert_eq!(ElementType::from_str("custom-widget"), ElementType::Custom("custom-widget".to_string()));
+    }
+
+    #[test]
+    fn test_parse_nested_containers_and_codeblock() {
+        let code = r#"
+        page {
+            container {
+                row {
+                    column {
+                        codeblock "fn main() {}"
+                        badge "Experimental"
+                    }
+                }
+            }
+        }
+        "#;
+
+        let ast = parse(code).unwrap();
+        assert_eq!(ast.element_type, ElementType::Page);
+        let container = &ast.children[0];
+        assert_eq!(container.element_type, ElementType::Container);
+        let row = &container.children[0];
+        assert_eq!(row.element_type, ElementType::Row);
+        let col = &row.children[0];
+        assert_eq!(col.element_type, ElementType::Column);
+        assert_eq!(col.children[0].element_type, ElementType::CodeBlock);
+        assert_eq!(col.children[0].value, Some("fn main() {}".to_string()));
+        assert_eq!(col.children[1].element_type, ElementType::Badge);
+    }
+
+    #[test]
+    fn test_parse_malformed_syntax_errors() {
+        // Missing opening brace
+        let bad_code_1 = "page title \"Test\"";
+        assert!(matches!(parse(bad_code_1), Err(ParseError::SyntaxError { .. })));
+
+        // Unterminated string literal
+        let bad_code_2 = "page { title \"Unclosed string }";
+        assert!(matches!(parse(bad_code_2), Err(ParseError::SyntaxError { .. })));
+
+        // Unexpected characters
+        let bad_code_3 = "page { @invalid }";
+        assert!(matches!(parse(bad_code_3), Err(ParseError::SyntaxError { .. })));
+
+        // Empty input EOF
+        assert!(matches!(parse(""), Err(ParseError::UnexpectedEof)));
+    }
 }
