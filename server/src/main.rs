@@ -12,12 +12,18 @@ fn main() {
     if args.len() >= 4 && args[1] == "serve" {
         let pkg_path = &args[2];
         let domain = &args[4];
-        println!("[lumid] Serving custom package '{}' on domain 'lumi://{}'...", pkg_path, domain);
-        
+        println!(
+            "[lumid] Serving custom package '{}' on domain 'lumi://{}'...",
+            pkg_path, domain
+        );
+
         let pkg_bytes = fs::read(pkg_path).expect("Failed to read package file");
         run_server(bind_addr, Some((domain.clone(), pkg_bytes)));
     } else {
-        println!("[lumid] Starting Lumi Default Public Network Server daemon on {}", bind_addr);
+        println!(
+            "[lumid] Starting Lumi Default Public Network Server daemon on {}",
+            bind_addr
+        );
         run_server(bind_addr, None);
     }
 }
@@ -65,17 +71,21 @@ fn handle_connection(
             path: "/".to_string(),
         });
 
-        println!("[lumid] [Stream #{}] Request URI: 'lumi://{}{}'", msg.stream_id, uri.host, uri.path);
+        println!(
+            "[lumid] [Stream #{}] Request URI: 'lumi://{}{}'",
+            msg.stream_id, uri.host, uri.path
+        );
 
-        let (content_type, payload_bytes) = if let Some((ref custom_domain, ref custom_bytes)) = custom_site {
-            if &uri.host == custom_domain {
-                ("application/lpkg", custom_bytes.clone())
+        let (content_type, payload_bytes) =
+            if let Some((ref custom_domain, ref custom_bytes)) = custom_site {
+                if &uri.host == custom_domain {
+                    ("application/lpkg", custom_bytes.clone())
+                } else {
+                    route_default_pages(&uri.host, &uri.path)
+                }
             } else {
                 route_default_pages(&uri.host, &uri.path)
-            }
-        } else {
-            route_default_pages(&uri.host, &uri.path)
-        };
+            };
 
         let response = LmpMessage::new_response(msg.stream_id, content_type, payload_bytes);
         response.write_to(&mut stream)?;
@@ -86,7 +96,9 @@ fn handle_connection(
 
 fn route_default_pages(host: &str, path: &str) -> (&'static str, Vec<u8>) {
     let pkg = match (host, path) {
-        ("welcome.lumi", _) | ("welcome.home", _) => LumiPackage::new_md("Welcome Portal", WELCOME_MD),
+        ("welcome.lumi", _) | ("welcome.home", _) => {
+            LumiPackage::new_md("Welcome Portal", WELCOME_MD)
+        }
         ("search.lumi", _) | ("search.home", _) => LumiPackage::new_md("Lumi Search", SEARCH_MD),
         ("docs.lumi", _) | ("docs.home", _) => LumiPackage::new_md("Docs", DOCS_MD),
         ("chat.lumi", _) | ("chat.home", _) => LumiPackage::new_lml("Encrypted Chat", CHAT_PAGE),

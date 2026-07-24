@@ -86,7 +86,10 @@ entry = "index.lml"
 
     println!("✨ Successfully scaffolded Lumi site '{}'!", name);
     println!("📁 Directory created at: ./{}/", name);
-    println!("👉 Run 'lumi pack {} {}.lpkg' to bundle site for lumid server.", name, name);
+    println!(
+        "👉 Run 'lumi pack {} {}.lpkg' to bundle site for lumid server.",
+        name, name
+    );
 }
 
 fn pack_site(site_dir: &str, output_pkg: &str) {
@@ -108,5 +111,10 @@ fn pack_site(site_dir: &str, output_pkg: &str) {
     let bytes = pkg.to_bytes().unwrap();
     fs::write(output_pkg, bytes).unwrap();
 
-    println!("📦 Successfully packed '{}' into '{}' ({} bytes)", site_dir, output_pkg, pkg.to_bytes().unwrap().len());
+    println!(
+        "📦 Successfully packed '{}' into '{}' ({} bytes)",
+        site_dir,
+        output_pkg,
+        pkg.to_bytes().unwrap().len()
+    );
 }

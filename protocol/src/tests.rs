@@ -10,9 +10,12 @@ mod tests {
         assert_eq!(resolver.resolve("search.lumi").unwrap(), "127.0.0.1:9001");
         assert_eq!(resolver.resolve("welcome.lumi").unwrap(), "127.0.0.1:9001");
         assert_eq!(resolver.resolve("chat.lumi").unwrap(), "127.0.0.1:9001");
-        
+
         // Pass-through for host with explicit port
-        assert_eq!(resolver.resolve("custom.host:8080").unwrap(), "custom.host:8080");
+        assert_eq!(
+            resolver.resolve("custom.host:8080").unwrap(),
+            "custom.host:8080"
+        );
 
         // Failure cases
         assert!(matches!(

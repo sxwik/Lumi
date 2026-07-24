@@ -127,7 +127,10 @@ impl LumiApp {
                                     let _ = res_tx.send(NetworkResponse::Error {
                                         tab_index,
                                         url: url_str.clone(),
-                                        error: format!("Connection failed to target '{}': {}", uri.host, e),
+                                        error: format!(
+                                            "Connection failed to target '{}': {}",
+                                            uri.host, e
+                                        ),
                                     });
                                     continue;
                                 }
@@ -153,8 +156,13 @@ impl LumiApp {
                                     println!("[LMP] Frame received! Payload size: {} bytes, Content-Type: {}", res.payload.len(), res.header.content_type);
                                     let raw_bytes = res.payload.clone();
 
-                                    let page_content: Result<PageContent, String> = if res.header.content_type == "text/markdown" {
-                                        let md_src = String::from_utf8_lossy(&res.payload).to_string();
+                                    let page_content: Result<PageContent, String> = if res
+                                        .header
+                                        .content_type
+                                        == "text/markdown"
+                                    {
+                                        let md_src =
+                                            String::from_utf8_lossy(&res.payload).to_string();
                                         Ok(PageContent::Markdown(md_src))
                                     } else if res.header.content_type == "application/lpkg" {
                                         match LumiPackage::from_bytes(&res.payload) {
@@ -164,7 +172,9 @@ impl LumiApp {
                                                 } else if let Some(ref lml_src) = pkg.index_lml {
                                                     lumi_parser::parse(lml_src)
                                                         .map(PageContent::LumiMl)
-                                                        .map_err(|e| format!("LumiML Parse Error: {}", e))
+                                                        .map_err(|e| {
+                                                            format!("LumiML Parse Error: {}", e)
+                                                        })
                                                 } else {
                                                     Err("Package does not contain index.md or index.lml".to_string())
                                                 }
@@ -172,7 +182,8 @@ impl LumiApp {
                                             Err(e) => Err(format!("Error unpacking .lpkg: {}", e)),
                                         }
                                     } else {
-                                        let lml_code = String::from_utf8_lossy(&res.payload).to_string();
+                                        let lml_code =
+                                            String::from_utf8_lossy(&res.payload).to_string();
                                         lumi_parser::parse(&lml_code)
                                             .map(PageContent::LumiMl)
                                             .map_err(|e| format!("LumiML Parse Error: {}", e))
@@ -277,21 +288,26 @@ impl LumiApp {
                 } => {
                     if tab_index < self.tabs.len() {
                         let tab = &mut self.tabs[tab_index];
-                        tab.raw_payload = format!("[LMP Payload: {} bytes]\n\n{}", payload.len(), String::from_utf8_lossy(&payload));
+                        tab.raw_payload = format!(
+                            "[LMP Payload: {} bytes]\n\n{}",
+                            payload.len(),
+                            String::from_utf8_lossy(&payload)
+                        );
 
                         match page_content {
                             Ok(content) => {
                                 match &content {
                                     PageContent::LumiMl(ast) => {
-                                        if let Some(title_node) = ast
-                                            .children
-                                            .iter()
-                                            .find(|c| c.element_type == lumi_parser::ElementType::Title)
-                                        {
-                                            if let Some(val) = title_node
-                                                .value
-                                                .as_ref()
-                                                .or_else(|| title_node.children.first().and_then(|c| c.value.as_ref()))
+                                        if let Some(title_node) = ast.children.iter().find(|c| {
+                                            c.element_type == lumi_parser::ElementType::Title
+                                        }) {
+                                            if let Some(val) =
+                                                title_node.value.as_ref().or_else(|| {
+                                                    title_node
+                                                        .children
+                                                        .first()
+                                                        .and_then(|c| c.value.as_ref())
+                                                })
                                             {
                                                 tab.title = val.clone();
                                             }
@@ -300,7 +316,8 @@ impl LumiApp {
                                         }
                                     }
                                     PageContent::Markdown(md_text) => {
-                                        let first_line = md_text.lines().find(|l| l.starts_with("# "));
+                                        let first_line =
+                                            md_text.lines().find(|l| l.starts_with("# "));
                                         if let Some(title) = first_line {
                                             tab.title = title.trim_start_matches("# ").to_string();
                                         } else {
@@ -351,14 +368,27 @@ impl eframe::App for LumiApp {
 
                 for (idx, tab) in self.tabs.iter().enumerate() {
                     let is_active = idx == self.active_tab;
-                    let title_text = format!(" {} ", if tab.title.is_empty() { &tab.url } else { &tab.title });
+                    let title_text = format!(
+                        " {} ",
+                        if tab.title.is_empty() {
+                            &tab.url
+                        } else {
+                            &tab.title
+                        }
+                    );
 
-                    let btn = egui::Button::new(
-                        RichText::new(&title_text)
-                            .size(13.0)
-                            .color(if is_active { Color32::WHITE } else { Color32::LIGHT_GRAY }),
-                    )
-                    .fill(if is_active { Color32::from_rgb(45, 55, 75) } else { Color32::from_rgb(25, 28, 38) })
+                    let btn = egui::Button::new(RichText::new(&title_text).size(13.0).color(
+                        if is_active {
+                            Color32::WHITE
+                        } else {
+                            Color32::LIGHT_GRAY
+                        },
+                    ))
+                    .fill(if is_active {
+                        Color32::from_rgb(45, 55, 75)
+                    } else {
+                        Color32::from_rgb(25, 28, 38)
+                    })
                     .rounding(4.0);
 
                     if ui.add(btn).clicked() {
@@ -436,15 +466,24 @@ impl eframe::App for LumiApp {
                     self.navigate_current(&url);
                 }
 
-                if ui.selectable_label(self.show_bookmarks, "★ Bookmarks").clicked() {
+                if ui
+                    .selectable_label(self.show_bookmarks, "★ Bookmarks")
+                    .clicked()
+                {
                     self.show_bookmarks = !self.show_bookmarks;
                 }
 
-                if ui.selectable_label(self.show_extensions, "🧩 LPX").clicked() {
+                if ui
+                    .selectable_label(self.show_extensions, "🧩 LPX")
+                    .clicked()
+                {
                     self.show_extensions = !self.show_extensions;
                 }
 
-                if ui.selectable_label(self.show_dev_console, "🛠 Dev").clicked() {
+                if ui
+                    .selectable_label(self.show_dev_console, "🛠 Dev")
+                    .clicked()
+                {
                     self.show_dev_console = !self.show_dev_console;
                 }
 
@@ -494,7 +533,11 @@ impl eframe::App for LumiApp {
                     ui.heading("Installed Extensions");
                     ui.separator();
                     for ext in &self.extensions.extensions {
-                        ui.label(RichText::new(&ext.name).strong().color(Color32::from_rgb(100, 180, 255)));
+                        ui.label(
+                            RichText::new(&ext.name)
+                                .strong()
+                                .color(Color32::from_rgb(100, 180, 255)),
+                        );
                         ui.label(format!("Version: {}", ext.version));
                         ui.label(&ext.description);
                         ui.separator();

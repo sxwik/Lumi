@@ -11,7 +11,7 @@ pub fn render_page(ui: &mut Ui, root: &LumiNode, options: &mut RenderOptions) {
         ui.spacing_mut().item_spacing = Vec2::new(0.0, 12.0);
         let max_width = 880.0;
         let margin = ((ui.available_width() - max_width) / 2.0).max(16.0);
-        
+
         ui.horizontal(|ui| {
             ui.add_space(margin);
             ui.vertical(|ui| {
@@ -28,7 +28,7 @@ pub fn render_markdown(ui: &mut Ui, markdown: &str, options: &mut RenderOptions)
         ui.spacing_mut().item_spacing = Vec2::new(0.0, 12.0);
         let max_width = 880.0;
         let margin = ((ui.available_width() - max_width) / 2.0).max(16.0);
-        
+
         ui.horizontal(|ui| {
             ui.add_space(margin);
             ui.vertical(|ui| {
@@ -116,7 +116,11 @@ fn render_node(ui: &mut Ui, node: &LumiNode, options: &mut RenderOptions) {
             ui.horizontal(|ui| {
                 ui.label(RichText::new("✓").color(Color32::from_rgb(80, 200, 140)));
                 ui.add_space(6.0);
-                ui.label(RichText::new(text).size(14.0).color(Color32::from_rgb(200, 210, 225)));
+                ui.label(
+                    RichText::new(text)
+                        .size(14.0)
+                        .color(Color32::from_rgb(200, 210, 225)),
+                );
             });
         }
         ElementType::Container => {
@@ -159,7 +163,11 @@ fn render_node(ui: &mut Ui, node: &LumiNode, options: &mut RenderOptions) {
                 .rounding(4.0)
                 .inner_margin(Vec2::new(6.0, 3.0))
                 .show(ui, |ui| {
-                    ui.label(RichText::new(text).size(12.0).color(Color32::from_rgb(120, 200, 255)));
+                    ui.label(
+                        RichText::new(text)
+                            .size(12.0)
+                            .color(Color32::from_rgb(120, 200, 255)),
+                    );
                 });
         }
         ElementType::CodeBlock => {

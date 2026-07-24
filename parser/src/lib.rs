@@ -116,7 +116,7 @@ impl<'a> Parser<'a> {
                 Token::Identifier(ref name) if name == "page" => {
                     let mut page_node = LumiNode::new(ElementType::Page);
                     self.skip_whitespace_and_comments();
-                    
+
                     if let Some(Token::BraceOpen) = self.next_token()? {
                         while let Some(tok) = self.peek_token()? {
                             if tok == Token::BraceClose {
@@ -149,14 +149,16 @@ impl<'a> Parser<'a> {
     fn parse_element(&mut self) -> Result<LumiNode, ParseError> {
         self.skip_whitespace_and_comments();
         let token = self.next_token()?.ok_or(ParseError::UnexpectedEof)?;
-        
+
         let tag_name = match token {
             Token::Identifier(name) => name,
-            _ => return Err(ParseError::SyntaxError {
-                line: self.line,
-                col: self.col,
-                msg: format!("Expected element identifier, found {:?}", token),
-            }),
+            _ => {
+                return Err(ParseError::SyntaxError {
+                    line: self.line,
+                    col: self.col,
+                    msg: format!("Expected element identifier, found {:?}", token),
+                })
+            }
         };
 
         let mut node = LumiNode::new(ElementType::from_str(&tag_name));
@@ -364,14 +366,20 @@ mod tests {
         assert_eq!(ast.element_type, ElementType::Page);
         assert_eq!(ast.children.len(), 4);
         assert_eq!(ast.children[0].element_type, ElementType::Title);
-        assert_eq!(ast.children[3].children[1].get_attr("goto"), Some("lumi://docs.home"));
+        assert_eq!(
+            ast.children[3].children[1].get_attr("goto"),
+            Some("lumi://docs.home")
+        );
     }
 
     #[test]
     fn test_element_type_mappings() {
         assert_eq!(ElementType::from_str("page"), ElementType::Page);
         assert_eq!(ElementType::from_str("button"), ElementType::Button);
-        assert_eq!(ElementType::from_str("custom-widget"), ElementType::Custom("custom-widget".to_string()));
+        assert_eq!(
+            ElementType::from_str("custom-widget"),
+            ElementType::Custom("custom-widget".to_string())
+        );
     }
 
     #[test]
@@ -406,15 +414,24 @@ mod tests {
     fn test_parse_malformed_syntax_errors() {
         // Missing opening brace
         let bad_code_1 = "page title \"Test\"";
-        assert!(matches!(parse(bad_code_1), Err(ParseError::SyntaxError { .. })));
+        assert!(matches!(
+            parse(bad_code_1),
+            Err(ParseError::SyntaxError { .. })
+        ));
 
         // Unterminated string literal
         let bad_code_2 = "page { title \"Unclosed string }";
-        assert!(matches!(parse(bad_code_2), Err(ParseError::SyntaxError { .. })));
+        assert!(matches!(
+            parse(bad_code_2),
+            Err(ParseError::SyntaxError { .. })
+        ));
 
         // Unexpected characters
         let bad_code_3 = "page { @invalid }";
-        assert!(matches!(parse(bad_code_3), Err(ParseError::SyntaxError { .. })));
+        assert!(matches!(
+            parse(bad_code_3),
+            Err(ParseError::SyntaxError { .. })
+        ));
 
         // Empty input EOF
         assert!(matches!(parse(""), Err(ParseError::UnexpectedEof)));
