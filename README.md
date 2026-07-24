@@ -15,7 +15,6 @@ Lumi is a proof-of-concept, experimental web platform built from scratch in Rust
 
 Lumi is an exploration into custom systems programming for local networking and UI rendering, designed with zero telemetry and modular Rust components.
 
-<<<<<<< HEAD
 ### Core Architectural Features:
 - **Dual Presentation Pipeline**:
   -  **Native CommonMark Markdown (`index.md`)**: Renders documentation, RFCs, blogs, wikis, and static text content cleanly using pure Rust native UI widgets.
@@ -63,7 +62,6 @@ Lumi is an exploration into custom systems programming for local networking and 
 
 ---
 
-<<<<<<< HEAD
 ##  Project Components
 =======
 ## 🛠 Project Architecture & Components
@@ -88,7 +86,6 @@ flowchart TD
     Browser <-->|LMP Binary Protocol - RFC-0001| Daemon
     Daemon --> Packaging
 ```
->>>>>>> 685a934 (chore: improve engineering quality and project documentation)
 
 ```text
 lumi/
