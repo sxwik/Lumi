@@ -7,4 +7,5 @@ members = [
     "browser",
     "cli",
 ]
+exclude = ["fuzz"]
 resolver = "2"

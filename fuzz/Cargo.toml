@@ -1,0 +1,25 @@
+[package]
+name = "lumi-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+lumi-protocol = { path = "../protocol" }
+lumi-parser = { path = "../parser" }
+
+[[bin]]
+name = "lmp_message_read_from"
+path = "fuzz_targets/lmp_message_read_from.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "lumiml_parser"
+path = "fuzz_targets/lumiml_parser.rs"
+test = false
+doc = false

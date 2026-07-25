@@ -33,3 +33,9 @@ jobs:
 
       - name: Run Tests
         run: cargo test --all --verbose
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@cargo-audit
+
+      - name: Run Security Audit
+        run: cargo audit

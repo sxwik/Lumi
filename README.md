@@ -1,8 +1,10 @@
 # Lumi - Experimental Rust Browser Platform
 
 [![Rust CI](https://github.com/satwik/Lumi/actions/workflows/ci.yml/badge.svg)](https://github.com/satwik/Lumi/actions/workflows/ci.yml)
+[![Scheduled Fuzzing](https://github.com/satwik/Lumi/actions/workflows/fuzz.yml/badge.svg)](https://github.com/satwik/Lumi/actions/workflows/fuzz.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Rust: 2021](https://img.shields.io/badge/rust-2021_edition-orange.svg)](https://www.rust-lang.org/)
+[![Security: Cargo Audit](https://img.shields.io/badge/security-cargo--audit-green.svg)](https://github.com/rustsec/rustsec)
 
 Lumi is a proof-of-concept, experimental web platform built from scratch in Rust (Zero Chromium, Zero Electron, Zero HTML/CSS/JS stack). It demonstrates custom protocol handling, parsing, and rendering pipelines in pure Rust.
 
@@ -17,20 +19,12 @@ Lumi is an exploration into custom systems programming for local networking and 
 
 ### Core Architectural Features:
 - **Dual Presentation Pipeline**:
-  -  **Native CommonMark Markdown (`index.md`)**: Renders documentation, RFCs, blogs, wikis, and static text content cleanly using pure Rust native UI widgets.
-  -  **LumiML Engine (`index.lml`)**: Renders interactive applications, dashboards, chat systems, games, and rich UI elements via a custom AST layout parser.
+  - **Native CommonMark Markdown (`index.md`)**: Renders documentation, RFCs, blogs, wikis, and static text content cleanly using pure Rust native UI widgets.
+  - **LumiML Engine (`index.lml`)**: Renders interactive applications, dashboards, chat systems, games, and rich UI elements via a custom AST layout parser.
 - **LMP Transport Protocol (RFC-0001)**: A binary-multiplexed TCP network protocol running over default port `9001` with zero tracking, zero header bloat, and instant stream multiplexing.
 - **LNS Resolver (RFC-0003)**: Lumi Name Service for resolving `.lumi` domain names (e.g. `lumi://welcome.lumi`, `lumi://docs.lumi`).
 - **LPKG Package Format (RFC-0004)**: Binary site archive format bundling `index.md` or `index.lml` along with asset resources.
 
----
-
-##  Ecosystem Documentation & Specifications
-
--  **[Lumi Technical Whitepaper](docs/LUMI_WHITEPAPER.md)**: Architecture, Privacy Model, & Security Analysis.
--  **[Developer Quickstart Guide](docs/DEVELOPER_GUIDE.md)**: 5-minute tutorial to build and host Lumi sites.
--  **Formal RFC Specifications**:
-=======
 ### Feature Matrix & Reality Check
 
 | Feature Area | Status | Description |
@@ -39,19 +33,16 @@ Lumi is an exploration into custom systems programming for local networking and 
 | **LMP Protocol (`RFC-0001`)** | **Experimental** | Custom binary TCP framing running locally on default port `9001`. |
 | **LNS Resolver (`RFC-0003`)** | **Local Resolver Prototype** | In-memory/local domain resolver for `.lumi` names (e.g. `lumi://welcome.lumi`). |
 | **LPKG Format (`RFC-0004`)** | **Basic Package Builder** | Bundles `index.md`/`index.lml` assets into a binary package for serving. |
-| **Search & Directory** | **Static Directory** | Static list/directory mock (`lumi://search.lumi`). Search engine engine planned. |
+| **Search & Directory** | **Static Directory** | Static list/directory mock (`lumi://search.lumi`). |
 | **Messaging / Chat UI** | **Static UI Prototype** | Static chat user interface layout (`lumi://chat.lumi`). |
 
 ---
 
 ## 📚 Ecosystem Specifications
 
-*The following RFCs outline the experimental design goals for the platform:*
-
 - 📄 **[Lumi Technical Whitepaper](docs/LUMI_WHITEPAPER.md)**: Architecture & Prototype Goals.
 - 🚀 **[Developer Guide](docs/DEVELOPER_GUIDE.md)**: Guide to run local server and packages.
 - 📑 **RFC Specifications**:
->>>>>>> 685a934 (chore: improve engineering quality and project documentation)
   - [RFC-0001: LMP Core Binary Protocol](docs/rfcs/RFC-0001-LMP.md)
   - [RFC-0002: LumiML Markup Standard](docs/rfcs/RFC-0002-LumiML.md)
   - [RFC-0003: Lumi Name Service (LNS)](docs/rfcs/RFC-0003-LNS.md)
@@ -62,8 +53,6 @@ Lumi is an exploration into custom systems programming for local networking and 
 
 ---
 
-##  Project Components
-=======
 ## 🛠 Project Architecture & Components
 
 ```mermaid
@@ -100,7 +89,7 @@ lumi/
 
 ---
 
-##  Quickstart
+## 🚀 Quickstart
 
 ### 1. Launch the Lumi Server Daemon (`lumid`)
 ```bash
@@ -120,18 +109,46 @@ cargo run -p lumi-cli -- pack my-site my-site.lpkg
 
 ---
 
-<<<<<<< HEAD
-##  License
-=======
+## 🛡️ Security & Quality
+
+Lumi enforces high engineering quality standards, memory safety, and security audit practices:
+
+- **Continuous Integration (GitHub Actions)**: Automated workflows (`.github/workflows/ci.yml`) run on every push and pull request to validate formatting, linting, testing, and dependency vulnerabilities.
+- **Code Formatting (`cargo fmt`)**: Code style consistency is enforced across all workspace crates using `rustfmt`:
+  ```bash
+  cargo fmt --all
+  ```
+- **Linter & Best Practices (`cargo clippy`)**: Strict linting rules are enforced with zero warnings:
+  ```bash
+  cargo clippy --workspace --all-targets --all-features -- -D warnings
+  ```
+- **Unit & Integration Testing (`cargo test`)**: Comprehensive unit and integration test coverage across `protocol`, `parser`, `renderer`, `server`, `browser`, and `cli`:
+  ```bash
+  cargo test --workspace
+  ```
+- **Dependency Security Audit (`cargo audit`)**: Automated scanning for known security vulnerabilities in dependencies via `RustSec`:
+  ```bash
+  cargo install cargo-audit
+  cargo audit
+  ```
+- **Fuzz Testing (`cargo-fuzz`)**: Stress testing protocol decoders and markup parsers against malformed or hostile inputs to ensure no panics, memory corruption, or infinite loops:
+  - Fuzzing runs weekly on a scheduled GitHub Actions workflow (`.github/workflows/fuzz.yml`).
+  - To run fuzz targets locally (requires Rust nightly):
+    ```bash
+    cargo fuzz run lmp_message_read_from
+    cargo fuzz run lumiml_parser
+    ```
+
+---
+
 ## 🚦 Roadmap & Implementation Status
 
 - [x] **Implemented**: Local TCP protocol framing, parser AST foundation, Markdown & basic LumiML layout rendering, CLI packager.
-- [ ] **In Progress**: Unit test coverage expansion for protocol parser/framing edge cases, CI linting & formatting checks.
+- [x] **Security & Quality**: Continuous Integration, `cargo-audit` dependency vulnerability scanning, and `cargo-fuzz` stress-testing targets.
 - [ ] **Planned**: Dynamic search capabilities, cryptographic transport layer, extended widget library.
 
 ---
 
 ## 📜 License
->>>>>>> 685a934 (chore: improve engineering quality and project documentation)
 
 Released under the **Apache License, Version 2.0**.
