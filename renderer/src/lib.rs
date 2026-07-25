@@ -128,7 +128,7 @@ fn render_node(ui: &mut Ui, node: &LumiNode, options: &mut RenderOptions) {
             egui::Frame::none()
                 .fill(Color32::from_rgb(24, 30, 42))
                 .rounding(8.0)
-                .stroke(egui::Stroke::new(1.0, Color32::from_rgb(38, 48, 68)))
+                .stroke(egui::Stroke::new(1.0_f32, Color32::from_rgb(38, 48, 68)))
                 .inner_margin(16.0)
                 .show(ui, |ui| {
                     for child in &node.children {
