@@ -151,16 +151,70 @@ fn handle_connection(
 }
 
 fn route_default_pages(host: &str, path: &str) -> (&'static str, Vec<u8>) {
-    let pkg = match (host, path) {
-        ("welcome.lumi", _) | ("welcome.home", _) => {
-            LumiPackage::new_md("Welcome Portal", WELCOME_MD)
+    let pkg = match host {
+        "welcome.lumi" | "welcome.home" => LumiPackage::new_md("Welcome Portal", WELCOME_MD),
+        "search.lumi" | "search.home" => {
+            if let Some(q_idx) = path.find("q=") {
+                let term = &path[q_idx + 2..];
+                let decoded = term.replace('+', " ").replace("%20", " ");
+                let term_lower = decoded.to_lowercase();
+
+                let all_links = vec![
+                    (
+                        "docs.lumi",
+                        "Official LMP Core Protocol RFC Specifications & Architecture",
+                    ),
+                    ("welcome.lumi", "Main Gateway & Ecosystem Overview"),
+                    ("games.lumi", "Interactive Native Web Games"),
+                    ("wiki.lumi", "Open Lumi Ecosystem Knowledgebase"),
+                    ("chat.lumi", "Encrypted Peer Node Communication"),
+                    ("gallery.lumi", "Native LumiML UI Component Showcase"),
+                ];
+
+                let mut results = Vec::new();
+                for (domain, desc) in all_links {
+                    if domain.contains(&term_lower) || desc.to_lowercase().contains(&term_lower) {
+                        results.push(format!(
+                            "- [{}]({}://{}) - {}",
+                            domain, "lumi", domain, desc
+                        ));
+                    }
+                }
+
+                let results_str = if results.is_empty() {
+                    format!("No domains found matching '{}'.", decoded)
+                } else {
+                    results.join("\n")
+                };
+
+                let dynamic_search_md = format!(
+                    r#"# Search Results for "{}"
+
+Privacy-first search indexing results.
+
+---
+
+## Matches Found:
+
+{}
+
+---
+
+[🔍 New Search / Back to Search Index](lumi://search.lumi)
+[← Return to Welcome Portal](lumi://welcome.lumi)
+"#,
+                    decoded, results_str
+                );
+                LumiPackage::new_md("Lumi Search Results", &dynamic_search_md)
+            } else {
+                LumiPackage::new_md("Lumi Search", SEARCH_MD)
+            }
         }
-        ("search.lumi", _) | ("search.home", _) => LumiPackage::new_md("Lumi Search", SEARCH_MD),
-        ("docs.lumi", _) | ("docs.home", _) => LumiPackage::new_md("Docs", DOCS_MD),
-        ("chat.lumi", _) | ("chat.home", _) => LumiPackage::new_lml("Encrypted Chat", CHAT_PAGE),
-        ("gallery.lumi", _) | ("gallery.home", _) => LumiPackage::new_lml("Gallery", GALLERY_PAGE),
-        ("games.lumi", _) => LumiPackage::new_lml("Lumi Arcade", GAMES_PAGE),
-        ("wiki.lumi", _) => LumiPackage::new_md("Lumi Wiki", WIKI_MD),
+        "docs.lumi" | "docs.home" => LumiPackage::new_md("Docs", DOCS_MD),
+        "chat.lumi" | "chat.home" => LumiPackage::new_lml("Encrypted Chat", CHAT_PAGE),
+        "gallery.lumi" | "gallery.home" => LumiPackage::new_lml("Gallery", GALLERY_PAGE),
+        "games.lumi" => LumiPackage::new_lml("Lumi Arcade", GAMES_PAGE),
+        "wiki.lumi" => LumiPackage::new_md("Lumi Wiki", WIKI_MD),
         _ => LumiPackage::new_md("Welcome Portal", WELCOME_MD),
     };
 

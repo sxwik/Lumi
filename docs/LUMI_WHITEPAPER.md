@@ -75,13 +75,7 @@ LumiML provides a declarative block-based AST schema designed for direct native 
 ---
 
 ## 5. Performance Benchmarks
-
-| Metric | Legacy Web Browser | Lumi Ecosystem |
-| :--- | :--- | :--- |
-| **Executable Binary Size** | ~150 MB - 300 MB | **~12 MB - 18 MB** |
-| **Idle RAM Footprint** | ~500 MB - 1.2 GB | **~25 MB - 45 MB** |
-| **Initial Load Time** | ~1.5s - 3.2s | **< 40ms** |
-| **Telemetry Calls** | Hundreds per session | **0 (Zero)** |
+Formal benchmarking is planned; no measurements have been taken yet.
 
 ---
 

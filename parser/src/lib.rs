@@ -286,7 +286,14 @@ impl<'a> Parser<'a> {
             return Ok(None);
         }
 
-        let ch = self.input[self.pos..].chars().next().unwrap();
+        let ch = self.input[self.pos..]
+            .chars()
+            .next()
+            .ok_or_else(|| ParseError::SyntaxError {
+                line: self.line,
+                col: self.col,
+                msg: "Unexpected end of input".to_string(),
+            })?;
         match ch {
             '{' => {
                 self.pos += 1;
@@ -305,7 +312,13 @@ impl<'a> Parser<'a> {
                 let mut escaped = false;
 
                 while self.pos < self.input.len() {
-                    let c = self.input[self.pos..].chars().next().unwrap();
+                    let c = self.input[self.pos..].chars().next().ok_or_else(|| {
+                        ParseError::SyntaxError {
+                            line: self.line,
+                            col: self.col,
+                            msg: "Unexpected end of input in string literal".to_string(),
+                        }
+                    })?;
                     self.pos += c.len_utf8();
                     self.col += 1;
 
