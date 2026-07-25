@@ -6,6 +6,20 @@
 /target/
 **/target/
 
+# TLS certificates and private keys — generated at runtime, never commit
+certs/
+*.pem
+*.key
+*.crt
+*.der
+*.p12
+*.pfx
+
+# Fuzz corpus and artifacts — local only, too large for version control
+fuzz/corpus/
+fuzz/artifacts/
+fuzz/coverage/
+
 # Backup files
 *.bak
 *.tmp
@@ -15,39 +29,41 @@
 # Logs
 *.log
 
-# IDE Settings
+# IDE settings
 .vscode/
 .idea/
 .fleet/
 .vs/
 
-# OS Files
+# OS files
+.DS_Store
 Thumbs.db
 Desktop.ini
-.DS_Store
 
 # Environment
 .env
 .env.*
 
-# Temporary files
+# Temporary directories
 tmp/
 temp/
 
 # Rust Analyzer
 rust-project.json
 
-# Coverage
+# Coverage output
 coverage/
 *.profraw
 *.profdata
 default.profraw
+lcov.info
 
-# Package outputs
+# Lumi package outputs
 *.lpkg
-
-# Extension packages
 *.lpx
 
-# Local Lumi configuration
+# Local Lumi config
 lumi.toml
+
+# Benchmark baseline files (criterion)
+criterion/
