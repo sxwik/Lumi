@@ -1,34 +1,79 @@
+use lumi_protocol::tls::{self, LmpStream};
 use lumi_protocol::{LmpMessage, LumiPackage, LumiUri};
 use std::env;
 use std::fs;
 use std::io::ErrorKind;
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpListener;
+use std::path::PathBuf;
+use std::sync::Arc;
 use std::thread;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     let bind_addr = "127.0.0.1:9001";
 
-    if args.len() >= 4 && args[1] == "serve" {
-        let pkg_path = &args[2];
-        let domain = &args[4];
-        println!(
-            "[lumid] Serving custom package '{}' on domain 'lumi://{}'...",
-            pkg_path, domain
-        );
+    let mut cert_path = PathBuf::from("certs/dev_cert.pem");
+    let mut key_path = PathBuf::from("certs/dev_key.pem");
 
-        let pkg_bytes = fs::read(pkg_path).expect("Failed to read package file");
-        run_server(bind_addr, Some((domain.clone(), pkg_bytes)));
-    } else {
-        println!(
-            "[lumid] Starting Lumi Default Public Network Server daemon on {}",
-            bind_addr
-        );
-        run_server(bind_addr, None);
+    let mut i = 1;
+    let mut custom_site = None;
+
+    while i < args.len() {
+        match args[i].as_str() {
+            "--cert" if i + 1 < args.len() => {
+                cert_path = PathBuf::from(&args[i + 1]);
+                i += 2;
+            }
+            "--key" if i + 1 < args.len() => {
+                key_path = PathBuf::from(&args[i + 1]);
+                i += 2;
+            }
+            "serve" if i + 3 < args.len() => {
+                let pkg_path = &args[i + 1];
+                let domain = &args[i + 3];
+                println!(
+                    "[lumid] Serving custom package '{}' on domain 'lumi://{}'...",
+                    pkg_path, domain
+                );
+                let pkg_bytes = fs::read(pkg_path).expect("Failed to read package file");
+                custom_site = Some((domain.clone(), pkg_bytes));
+                i += 4;
+            }
+            _ => {
+                i += 1;
+            }
+        }
     }
+
+    println!(
+        "[lumid] Starting Lumi Default Public Network TLS Server daemon on {}",
+        bind_addr
+    );
+
+    let (certs, key) = match tls::load_or_generate_server_certs(&cert_path, &key_path) {
+        Ok(ck) => ck,
+        Err(e) => {
+            eprintln!("[lumid] TLS Certificate setup failed: {}", e);
+            return;
+        }
+    };
+
+    let tls_config = match tls::make_server_config(certs, key) {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            eprintln!("[lumid] TLS Server configuration failed: {}", e);
+            return;
+        }
+    };
+
+    run_server(bind_addr, custom_site, tls_config);
 }
 
-fn run_server(bind_addr: &str, custom_site: Option<(String, Vec<u8>)>) {
+fn run_server(
+    bind_addr: &str,
+    custom_site: Option<(String, Vec<u8>)>,
+    tls_config: Arc<tls::ServerConfig>,
+) {
     let listener = match TcpListener::bind(bind_addr) {
         Ok(l) => l,
         Err(e) => {
@@ -37,14 +82,25 @@ fn run_server(bind_addr: &str, custom_site: Option<(String, Vec<u8>)>) {
         }
     };
 
-    println!("[lumid] Network server active! Ready for persistent LMP connections...");
+    println!(
+        "[lumid] Network server active! Ready for persistent TLS-encrypted LMP connections..."
+    );
 
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
                 let site_copy = custom_site.clone();
+                let config_copy = tls_config.clone();
                 thread::spawn(move || {
-                    if let Err(e) = handle_connection(stream, site_copy) {
+                    let tls_stream = match tls::accept_tls(stream, config_copy) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            eprintln!("[lumid] TLS Handshake failed: {}", e);
+                            return;
+                        }
+                    };
+
+                    if let Err(e) = handle_connection(tls_stream, site_copy) {
                         eprintln!("[lumid] Connection session ended: {}", e);
                     }
                 });
@@ -55,7 +111,7 @@ fn run_server(bind_addr: &str, custom_site: Option<(String, Vec<u8>)>) {
 }
 
 fn handle_connection(
-    mut stream: TcpStream,
+    mut stream: LmpStream,
     custom_site: Option<(String, Vec<u8>)>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     loop {

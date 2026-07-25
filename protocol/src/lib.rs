@@ -6,6 +6,8 @@ use thiserror::Error;
 pub const MAGIC_BYTES: &[u8; 4] = b"LUMI";
 pub const PROTOCOL_VERSION: u8 = 1;
 
+pub mod tls;
+
 #[derive(Error, Debug)]
 pub enum LmpError {
     #[error("Invalid scheme in URI. Expected 'lumi://'")]
@@ -22,6 +24,10 @@ pub enum LmpError {
     PayloadTooLarge(usize),
     #[error("LNS resolution failed for host: {0}")]
     LnsResolutionFailed(String),
+    #[error("TLS error: {0}")]
+    Tls(String),
+    #[error("Certificate error: {0}")]
+    Certificate(String),
 }
 
 /// Lumi Name Service (LNS) Resolver

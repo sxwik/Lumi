@@ -4,10 +4,10 @@ use eframe::egui;
 use egui::{Color32, RichText, Vec2};
 use extension::ExtensionRegistry;
 use lumi_parser::LumiNode;
+use lumi_protocol::tls::{self, LmpStream};
 use lumi_protocol::{LmpMessage, LnsResolver, LumiPackage, LumiUri};
 use lumi_renderer::RenderOptions;
 use std::collections::VecDeque;
-use std::net::TcpStream;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 
@@ -88,7 +88,14 @@ impl LumiApp {
 
         thread::spawn(move || {
             let lns = LnsResolver::new();
-            let mut current_stream: Option<(String, TcpStream)> = None;
+            let mut current_stream: Option<(String, LmpStream)> = None;
+            let tls_config = match tls::make_dev_client_config() {
+                Ok(cfg) => cfg,
+                Err(e) => {
+                    eprintln!("[LMP TLS] Failed to initialize TLS client config: {}", e);
+                    return;
+                }
+            };
 
             while let Ok((tab_index, url_str)) = req_rx.recv() {
                 match url_str.parse::<LumiUri>() {
@@ -116,19 +123,25 @@ impl LumiApp {
                         };
 
                         if need_new {
-                            println!("[LMP] Connecting to persistent socket {}...", resolved_addr);
-                            match TcpStream::connect(&resolved_addr) {
+                            println!(
+                                "[LMP TLS] Establishing TLS connection to {}...",
+                                resolved_addr
+                            );
+                            match tls::connect_tls(&resolved_addr, &uri.host, tls_config.clone()) {
                                 Ok(stream) => {
-                                    println!("[LMP] Connected to {}", resolved_addr);
+                                    println!(
+                                        "[LMP TLS] TLS Handshake successful with {}",
+                                        resolved_addr
+                                    );
                                     current_stream = Some((resolved_addr.clone(), stream));
                                 }
                                 Err(e) => {
-                                    eprintln!("[LMP] Connection failed: {}", e);
+                                    eprintln!("[LMP TLS] TLS Connection failed: {}", e);
                                     let _ = res_tx.send(NetworkResponse::Error {
                                         tab_index,
                                         url: url_str.clone(),
                                         error: format!(
-                                            "Connection failed to target '{}': {}",
+                                            "TLS Connection failed to target '{}': {}",
                                             uri.host, e
                                         ),
                                     });
