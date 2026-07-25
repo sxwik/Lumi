@@ -1,12 +1,55 @@
 use lumi_protocol::tls::{self, LmpStream};
-use lumi_protocol::{LmpMessage, LumiPackage, LumiUri};
+use lumi_protocol::{ChatMessagePayload, LmpMessage, LumiPackage, LumiUri, PacketType};
 use std::env;
 use std::fs;
 use std::io::ErrorKind;
 use std::net::TcpListener;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Duration;
+
+#[derive(Clone)]
+struct ChatHub {
+    clients: Arc<Mutex<Vec<Sender<LmpMessage>>>>,
+    history: Arc<Mutex<Vec<ChatMessagePayload>>>,
+}
+
+impl ChatHub {
+    fn new() -> Self {
+        Self {
+            clients: Arc::new(Mutex::new(Vec::new())),
+            history: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
+    fn register_client(&self) -> (Sender<LmpMessage>, Receiver<LmpMessage>) {
+        let (tx, rx) = channel();
+        let mut clients = self.clients.lock().unwrap_or_else(|e| e.into_inner());
+        clients.push(tx.clone());
+        (tx, rx)
+    }
+
+    fn get_history(&self) -> Vec<ChatMessagePayload> {
+        let history = self.history.lock().unwrap_or_else(|e| e.into_inner());
+        history.clone()
+    }
+
+    fn broadcast(&self, msg: ChatMessagePayload) {
+        let mut history = self.history.lock().unwrap_or_else(|e| e.into_inner());
+        history.push(msg.clone());
+        if history.len() > 50 {
+            history.remove(0);
+        }
+        drop(history);
+
+        let lmp_msg = LmpMessage::new_chat_message(0, &msg.username, &msg.content, &msg.timestamp);
+
+        let mut clients = self.clients.lock().unwrap_or_else(|e| e.into_inner());
+        clients.retain(|client_tx| client_tx.send(lmp_msg.clone()).is_ok());
+    }
+}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -66,13 +109,15 @@ fn main() {
         }
     };
 
-    run_server(bind_addr, custom_site, tls_config);
+    let chat_hub = ChatHub::new();
+    run_server(bind_addr, custom_site, tls_config, chat_hub);
 }
 
 fn run_server(
     bind_addr: &str,
     custom_site: Option<(String, Vec<u8>)>,
     tls_config: Arc<tls::ServerConfig>,
+    chat_hub: ChatHub,
 ) {
     let listener = match TcpListener::bind(bind_addr) {
         Ok(l) => l,
@@ -91,6 +136,7 @@ fn run_server(
             Ok(stream) => {
                 let site_copy = custom_site.clone();
                 let config_copy = tls_config.clone();
+                let hub_copy = chat_hub.clone();
                 thread::spawn(move || {
                     let tls_stream = match tls::accept_tls(stream, config_copy) {
                         Ok(s) => s,
@@ -100,7 +146,7 @@ fn run_server(
                         }
                     };
 
-                    if let Err(e) = handle_connection(tls_stream, site_copy) {
+                    if let Err(e) = handle_connection(tls_stream, site_copy, hub_copy) {
                         eprintln!("[lumid] Connection session ended: {}", e);
                     }
                 });
@@ -113,38 +159,76 @@ fn run_server(
 fn handle_connection(
     mut stream: LmpStream,
     custom_site: Option<(String, Vec<u8>)>,
+    chat_hub: ChatHub,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(50)));
+    let (_client_tx, client_rx) = chat_hub.register_client();
+
     loop {
-        let msg = match LmpMessage::read_from(&mut stream) {
-            Ok(m) => m,
-            Err(lumi_protocol::LmpError::Io(e)) if e.kind() == ErrorKind::UnexpectedEof => break,
-            Err(e) => return Err(Box::new(e)),
-        };
+        // Flush any broadcast messages queued for this client stream
+        while let Ok(broadcast_msg) = client_rx.try_recv() {
+            if broadcast_msg.write_to(&mut stream).is_err() {
+                return Ok(());
+            }
+        }
 
-        let uri = msg.header.uri.parse::<LumiUri>().unwrap_or(LumiUri {
-            host: "welcome.lumi".to_string(),
-            port: 7878,
-            path: "/".to_string(),
-        });
-
-        println!(
-            "[lumid] [Stream #{}] Request URI: 'lumi://{}{}'",
-            msg.stream_id, uri.host, uri.path
-        );
-
-        let (content_type, payload_bytes) =
-            if let Some((ref custom_domain, ref custom_bytes)) = custom_site {
-                if &uri.host == custom_domain {
-                    ("application/lpkg", custom_bytes.clone())
-                } else {
-                    route_default_pages(&uri.host, &uri.path)
+        match LmpMessage::read_from(&mut stream) {
+            Ok(msg) => match msg.packet_type {
+                PacketType::JoinChat => {
+                    let history = chat_hub.get_history();
+                    let history_msg = LmpMessage::new_chat_history(msg.stream_id, history);
+                    let _ = history_msg.write_to(&mut stream);
                 }
-            } else {
-                route_default_pages(&uri.host, &uri.path)
-            };
+                PacketType::ChatMessage => {
+                    if let Ok(chat_msg) = ChatMessagePayload::from_slice(&msg.payload) {
+                        chat_hub.broadcast(chat_msg);
+                    }
+                }
+                PacketType::LeaveChat => {
+                    break;
+                }
+                _ => {
+                    let uri = msg.header.uri.parse::<LumiUri>().unwrap_or(LumiUri {
+                        host: "welcome.lumi".to_string(),
+                        port: 7878,
+                        path: "/".to_string(),
+                    });
 
-        let response = LmpMessage::new_response(msg.stream_id, content_type, payload_bytes);
-        response.write_to(&mut stream)?;
+                    println!(
+                        "[lumid] [Stream #{}] Request URI: 'lumi://{}{}'",
+                        msg.stream_id, uri.host, uri.path
+                    );
+
+                    if uri.host == "chat.lumi" || uri.host == "chat.home" {
+                        let history = chat_hub.get_history();
+                        let history_msg = LmpMessage::new_chat_history(msg.stream_id, history);
+                        let _ = history_msg.write_to(&mut stream);
+                    } else {
+                        let (content_type, payload_bytes) =
+                            if let Some((ref custom_domain, ref custom_bytes)) = custom_site {
+                                if &uri.host == custom_domain {
+                                    ("application/lpkg", custom_bytes.clone())
+                                } else {
+                                    route_default_pages(&uri.host, &uri.path)
+                                }
+                            } else {
+                                route_default_pages(&uri.host, &uri.path)
+                            };
+
+                        let response =
+                            LmpMessage::new_response(msg.stream_id, content_type, payload_bytes);
+                        let _ = response.write_to(&mut stream);
+                    }
+                }
+            },
+            Err(lumi_protocol::LmpError::Io(e))
+                if e.kind() == ErrorKind::WouldBlock || e.kind() == ErrorKind::TimedOut =>
+            {
+                continue;
+            }
+            Err(lumi_protocol::LmpError::Io(e)) if e.kind() == ErrorKind::UnexpectedEof => break,
+            Err(_) => break,
+        }
     }
 
     Ok(())

@@ -122,6 +122,10 @@ pub enum PacketType {
     Ping = 3,
     Pong = 4,
     Error = 5,
+    JoinChat = 6,
+    ChatMessage = 7,
+    ChatHistory = 8,
+    LeaveChat = 9,
 }
 
 impl PacketType {
@@ -132,8 +136,47 @@ impl PacketType {
             3 => Some(PacketType::Ping),
             4 => Some(PacketType::Pong),
             5 => Some(PacketType::Error),
+            6 => Some(PacketType::JoinChat),
+            7 => Some(PacketType::ChatMessage),
+            8 => Some(PacketType::ChatHistory),
+            9 => Some(PacketType::LeaveChat),
             _ => None,
         }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatMessagePayload {
+    pub username: String,
+    pub content: String,
+    pub timestamp: String,
+}
+
+impl ChatMessagePayload {
+    pub fn from_slice(bytes: &[u8]) -> Result<Self, LmpError> {
+        Ok(serde_json::from_slice(bytes)?)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatHistoryPayload {
+    pub messages: Vec<ChatMessagePayload>,
+}
+
+impl ChatHistoryPayload {
+    pub fn from_slice(bytes: &[u8]) -> Result<Self, LmpError> {
+        Ok(serde_json::from_slice(bytes)?)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JoinChatPayload {
+    pub username: String,
+}
+
+impl JoinChatPayload {
+    pub fn from_slice(bytes: &[u8]) -> Result<Self, LmpError> {
+        Ok(serde_json::from_slice(bytes)?)
     }
 }
 
@@ -207,6 +250,64 @@ impl LmpMessage {
                 ..Default::default()
             },
             payload: message.as_bytes().to_vec(),
+        }
+    }
+
+    pub fn new_chat_message(
+        stream_id: u32,
+        username: &str,
+        content: &str,
+        timestamp: &str,
+    ) -> Self {
+        let payload = serde_json::to_vec(&ChatMessagePayload {
+            username: username.to_string(),
+            content: content.to_string(),
+            timestamp: timestamp.to_string(),
+        })
+        .unwrap_or_default();
+
+        Self {
+            packet_type: PacketType::ChatMessage,
+            stream_id,
+            header: LmpHeader {
+                uri: "lumi://chat.lumi".to_string(),
+                content_type: "application/json".to_string(),
+                ..Default::default()
+            },
+            payload,
+        }
+    }
+
+    pub fn new_chat_history(stream_id: u32, messages: Vec<ChatMessagePayload>) -> Self {
+        let payload = serde_json::to_vec(&ChatHistoryPayload { messages }).unwrap_or_default();
+
+        Self {
+            packet_type: PacketType::ChatHistory,
+            stream_id,
+            header: LmpHeader {
+                uri: "lumi://chat.lumi".to_string(),
+                content_type: "application/json".to_string(),
+                ..Default::default()
+            },
+            payload,
+        }
+    }
+
+    pub fn new_join_chat(stream_id: u32, username: &str) -> Self {
+        let payload = serde_json::to_vec(&JoinChatPayload {
+            username: username.to_string(),
+        })
+        .unwrap_or_default();
+
+        Self {
+            packet_type: PacketType::JoinChat,
+            stream_id,
+            header: LmpHeader {
+                uri: "lumi://chat.lumi".to_string(),
+                content_type: "application/json".to_string(),
+                ..Default::default()
+            },
+            payload,
         }
     }
 

@@ -230,6 +230,15 @@ impl Write for LmpStream {
     }
 }
 
+impl LmpStream {
+    pub fn set_read_timeout(&self, dur: Option<std::time::Duration>) -> std::io::Result<()> {
+        match self {
+            LmpStream::Client(s) => s.get_ref().set_read_timeout(dur),
+            LmpStream::Server(s) => s.get_ref().set_read_timeout(dur),
+        }
+    }
+}
+
 pub fn connect_tls(
     addr: &str,
     server_name_str: &str,

@@ -38,7 +38,7 @@ Why? Because writing a custom protocol, a hand-rolled recursive-descent parser, 
 | **lumid daemon** | **Working** | Listens on port `9001`, accepts TLS streams, throws bytes. |
 | **Lumi Browser** | **Working** | A native `egui` desktop app with tabs, history, a dev console, and a stubbed out extension registry. |
 | **LNS Resolver** | **Static Mock** | Just an in-memory registry. Don't try to query Cloudflare for it. |
-| **chat.lumi** | **Mock UI** | A gorgeous chat layout where you can type messages to... nobody. It does not send packets yet. |
+| **chat.lumi** | **Working** | First interactive Lumi app! Instant, bidirectional multi-client chat over persistent TLS streams with 50-message in-memory history. |
 | **search.lumi** | **Static Directory** | A hardcoded list of local pages. Google is not sweating. |
 
 ---
@@ -90,6 +90,17 @@ We don't use OpenSSL. Why? Because compiling C dependencies in a Rust workspace 
   ```
 
 *Note: Dev certificates (`certs/`) are ignored by git because committing private keys to GitHub is how servers get mined for Monero.*
+
+---
+
+## 💬 Interactive Chat App (chat.lumi)
+
+`lumi://chat.lumi` is our first real interactive application! It proves that the Lumi Protocol (LMP) supports persistent, real-time bidirectional communication over TLS without standard HTTP web sockets or JavaScript.
+
+- **Persistent TLS Stream**: No polling or page reloads required.
+- **Instant Multi-Client Broadcasting**: Open two `lumi-browser` windows to `lumi://chat.lumi`, type a message in one, and watch it appear instantly in the other!
+- **In-Memory Message Backlog**: `lumid` keeps the last 50 messages in memory so newly connected clients immediately see recent history upon joining.
+- **Zero Panic Architecture**: Uses structured error handling with zero `unwrap()` or `expect()` calls in networking code paths.
 
 ---
 

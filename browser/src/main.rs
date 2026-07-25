@@ -5,11 +5,16 @@ use egui::{Color32, RichText, Vec2};
 use extension::ExtensionRegistry;
 use lumi_parser::LumiNode;
 use lumi_protocol::tls::{self, LmpStream};
-use lumi_protocol::{LmpMessage, LnsResolver, LumiPackage, LumiUri};
+use lumi_protocol::{
+    ChatHistoryPayload, ChatMessagePayload, LmpMessage, LnsResolver, LumiPackage, LumiUri,
+    PacketType,
+};
 use lumi_renderer::RenderOptions;
 use std::collections::VecDeque;
+use std::io::ErrorKind;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
+use std::time::Duration;
 
 enum PageContent {
     LumiMl(LumiNode),
@@ -40,6 +45,11 @@ impl Tab {
     }
 }
 
+enum NetworkRequest {
+    Navigate { tab_index: usize, url_str: String },
+    SendChatMessage { username: String, content: String },
+}
+
 enum NetworkResponse {
     Success {
         tab_index: usize,
@@ -52,6 +62,8 @@ enum NetworkResponse {
         url: String,
         error: String,
     },
+    ChatHistory(Vec<ChatMessagePayload>),
+    ChatMessage(ChatMessagePayload),
 }
 
 struct LogEntry {
@@ -70,10 +82,13 @@ pub struct LumiApp {
     show_extensions: bool,
     bookmarks: Vec<String>,
     history: Vec<String>,
-    net_sender: Sender<(usize, String)>,
+    net_sender: Sender<NetworkRequest>,
     net_receiver: Receiver<NetworkResponse>,
     logs: VecDeque<LogEntry>,
     extensions: ExtensionRegistry,
+    chat_username: String,
+    chat_input: String,
+    chat_messages: Vec<ChatMessagePayload>,
 }
 
 impl LumiApp {
@@ -83,7 +98,7 @@ impl LumiApp {
         visuals.panel_fill = Color32::from_rgb(24, 27, 36);
         cc.egui_ctx.set_visuals(visuals);
 
-        let (req_tx, req_rx) = channel::<(usize, String)>();
+        let (req_tx, req_rx) = channel::<NetworkRequest>();
         let (res_tx, res_rx) = channel::<NetworkResponse>();
 
         thread::spawn(move || {
@@ -97,136 +112,146 @@ impl LumiApp {
                 }
             };
 
-            while let Ok((tab_index, url_str)) = req_rx.recv() {
-                match url_str.parse::<LumiUri>() {
-                    Ok(uri) => {
-                        println!("[LNS] Resolving domain '{}'...", uri.host);
-                        let resolved_addr = match lns.resolve(&uri.host) {
-                            Ok(addr) => {
-                                println!("[LNS] Resolved '{}' -> {}", uri.host, addr);
-                                addr
-                            }
-                            Err(e) => {
-                                eprintln!("[LNS] Resolution failed for '{}': {}", uri.host, e);
-                                let _ = res_tx.send(NetworkResponse::Error {
-                                    tab_index,
-                                    url: url_str.clone(),
-                                    error: format!("LNS Resolution Error: {}", e),
-                                });
-                                continue;
-                            }
-                        };
+            loop {
+                while let Ok(req) = req_rx.try_recv() {
+                    match req {
+                        NetworkRequest::Navigate { tab_index, url_str } => {
+                            if let Ok(uri) = url_str.parse::<LumiUri>() {
+                                let resolved_addr = match lns.resolve(&uri.host) {
+                                    Ok(addr) => addr,
+                                    Err(e) => {
+                                        let _ = res_tx.send(NetworkResponse::Error {
+                                            tab_index,
+                                            url: url_str.clone(),
+                                            error: format!("LNS Resolution Error: {}", e),
+                                        });
+                                        continue;
+                                    }
+                                };
 
-                        let need_new = match current_stream {
-                            Some((ref addr, _)) => addr != &resolved_addr,
-                            None => true,
-                        };
+                                let need_new = match current_stream {
+                                    Some((ref addr, _)) => addr != &resolved_addr,
+                                    None => true,
+                                };
 
-                        if need_new {
-                            println!(
-                                "[LMP TLS] Establishing TLS connection to {}...",
-                                resolved_addr
-                            );
-                            match tls::connect_tls(&resolved_addr, &uri.host, tls_config.clone()) {
-                                Ok(stream) => {
-                                    println!(
-                                        "[LMP TLS] TLS Handshake successful with {}",
-                                        resolved_addr
-                                    );
-                                    current_stream = Some((resolved_addr.clone(), stream));
-                                }
-                                Err(e) => {
-                                    eprintln!("[LMP TLS] TLS Connection failed: {}", e);
-                                    let _ = res_tx.send(NetworkResponse::Error {
-                                        tab_index,
-                                        url: url_str.clone(),
-                                        error: format!(
-                                            "TLS Connection failed to target '{}': {}",
-                                            uri.host, e
-                                        ),
-                                    });
-                                    continue;
-                                }
-                            }
-                        }
-
-                        if let Some((_, ref mut stream)) = current_stream {
-                            println!("[LMP] Sending GET request for '{}'...", url_str);
-                            let req = LmpMessage::new_request(&url_str, 1);
-                            if let Err(e) = req.write_to(stream) {
-                                current_stream = None;
-                                let _ = res_tx.send(NetworkResponse::Error {
-                                    tab_index,
-                                    url: url_str,
-                                    error: format!("Write error: {}", e),
-                                });
-                                continue;
-                            }
-
-                            println!("[LMP] Receiving LMP frame response...");
-                            match LmpMessage::read_from(stream) {
-                                Ok(res) => {
-                                    println!("[LMP] Frame received! Payload size: {} bytes, Content-Type: {}", res.payload.len(), res.header.content_type);
-                                    let raw_bytes = res.payload.clone();
-
-                                    let page_content: Result<PageContent, String> = if res
-                                        .header
-                                        .content_type
-                                        == "text/markdown"
-                                    {
-                                        let md_src =
-                                            String::from_utf8_lossy(&res.payload).to_string();
-                                        Ok(PageContent::Markdown(md_src))
-                                    } else if res.header.content_type == "application/lpkg" {
-                                        match LumiPackage::from_bytes(&res.payload) {
-                                            Ok(pkg) => {
-                                                if let Some(ref md_src) = pkg.index_md {
-                                                    Ok(PageContent::Markdown(md_src.clone()))
-                                                } else if let Some(ref lml_src) = pkg.index_lml {
-                                                    lumi_parser::parse(lml_src)
-                                                        .map(PageContent::LumiMl)
-                                                        .map_err(|e| {
-                                                            format!("LumiML Parse Error: {}", e)
-                                                        })
-                                                } else {
-                                                    Err("Package does not contain index.md or index.lml".to_string())
-                                                }
-                                            }
-                                            Err(e) => Err(format!("Error unpacking .lpkg: {}", e)),
+                                if need_new {
+                                    match tls::connect_tls(
+                                        &resolved_addr,
+                                        &uri.host,
+                                        tls_config.clone(),
+                                    ) {
+                                        Ok(stream) => {
+                                            let _ = stream
+                                                .set_read_timeout(Some(Duration::from_millis(50)));
+                                            current_stream = Some((resolved_addr.clone(), stream));
                                         }
-                                    } else {
-                                        let lml_code =
-                                            String::from_utf8_lossy(&res.payload).to_string();
-                                        lumi_parser::parse(&lml_code)
-                                            .map(PageContent::LumiMl)
-                                            .map_err(|e| format!("LumiML Parse Error: {}", e))
-                                    };
-
-                                    let _ = res_tx.send(NetworkResponse::Success {
-                                        tab_index,
-                                        url: url_str,
-                                        payload: raw_bytes,
-                                        page_content,
-                                    });
+                                        Err(e) => {
+                                            let _ = res_tx.send(NetworkResponse::Error {
+                                                tab_index,
+                                                url: url_str.clone(),
+                                                error: format!(
+                                                    "TLS Connection failed to target '{}': {}",
+                                                    uri.host, e
+                                                ),
+                                            });
+                                            continue;
+                                        }
+                                    }
                                 }
-                                Err(e) => {
-                                    current_stream = None;
-                                    let _ = res_tx.send(NetworkResponse::Error {
-                                        tab_index,
-                                        url: url_str,
-                                        error: format!("LMP Read Error: {}", e),
-                                    });
+
+                                if let Some((_, ref mut stream)) = current_stream {
+                                    if uri.host == "chat.lumi" || uri.host == "chat.home" {
+                                        let join_msg = LmpMessage::new_join_chat(1, "Anonymous");
+                                        let _ = join_msg.write_to(stream);
+                                    } else {
+                                        let req = LmpMessage::new_request(&url_str, 1);
+                                        if let Err(e) = req.write_to(stream) {
+                                            current_stream = None;
+                                            let _ = res_tx.send(NetworkResponse::Error {
+                                                tab_index,
+                                                url: url_str,
+                                                error: format!("Write error: {}", e),
+                                            });
+                                            continue;
+                                        }
+                                    }
                                 }
                             }
                         }
+                        NetworkRequest::SendChatMessage { username, content } => {
+                            if let Some((_, ref mut stream)) = current_stream {
+                                let chat_msg =
+                                    LmpMessage::new_chat_message(1, &username, &content, "14:35");
+                                let _ = chat_msg.write_to(stream);
+                            }
+                        }
                     }
-                    Err(e) => {
-                        let _ = res_tx.send(NetworkResponse::Error {
-                            tab_index,
-                            url: url_str,
-                            error: format!("Invalid URI format: {}", e),
-                        });
+                }
+
+                if let Some((_, ref mut stream)) = current_stream {
+                    match LmpMessage::read_from(stream) {
+                        Ok(msg) => match msg.packet_type {
+                            PacketType::ChatHistory => {
+                                if let Ok(history) = ChatHistoryPayload::from_slice(&msg.payload) {
+                                    let _ =
+                                        res_tx.send(NetworkResponse::ChatHistory(history.messages));
+                                }
+                            }
+                            PacketType::ChatMessage => {
+                                if let Ok(chat_msg) = ChatMessagePayload::from_slice(&msg.payload) {
+                                    let _ = res_tx.send(NetworkResponse::ChatMessage(chat_msg));
+                                }
+                            }
+                            PacketType::Response => {
+                                let raw_bytes = msg.payload.clone();
+                                let page_content = if msg.header.content_type == "text/markdown" {
+                                    let md_src = String::from_utf8_lossy(&msg.payload).to_string();
+                                    Ok(PageContent::Markdown(md_src))
+                                } else if msg.header.content_type == "application/lpkg" {
+                                    match LumiPackage::from_bytes(&msg.payload) {
+                                        Ok(pkg) => {
+                                            if let Some(lml) = pkg.index_lml {
+                                                match lumi_parser::parse(&lml) {
+                                                    Ok(ast) => Ok(PageContent::LumiMl(ast)),
+                                                    Err(e) => {
+                                                        Err(format!("LumiML Parse Error: {:?}", e))
+                                                    }
+                                                }
+                                            } else if let Some(md) = pkg.index_md {
+                                                Ok(PageContent::Markdown(md))
+                                            } else {
+                                                Err("Empty LPKG archive".to_string())
+                                            }
+                                        }
+                                        Err(e) => Err(format!("LPKG unpack error: {}", e)),
+                                    }
+                                } else {
+                                    let text = String::from_utf8_lossy(&msg.payload).to_string();
+                                    Ok(PageContent::Markdown(text))
+                                };
+
+                                let _ = res_tx.send(NetworkResponse::Success {
+                                    tab_index: 0,
+                                    url: msg.header.uri.clone(),
+                                    payload: raw_bytes,
+                                    page_content,
+                                });
+                            }
+                            _ => {}
+                        },
+                        Err(lumi_protocol::LmpError::Io(e))
+                            if e.kind() == ErrorKind::WouldBlock
+                                || e.kind() == ErrorKind::TimedOut =>
+                        {
+                            thread::sleep(Duration::from_millis(10));
+                        }
+                        Err(_) => {
+                            current_stream = None;
+                            thread::sleep(Duration::from_millis(50));
+                        }
                     }
+                } else {
+                    thread::sleep(Duration::from_millis(50));
                 }
             }
         });
@@ -252,6 +277,9 @@ impl LumiApp {
             net_receiver: res_rx,
             logs: VecDeque::new(),
             extensions: ExtensionRegistry::new(),
+            chat_username: "Anonymous".to_string(),
+            chat_input: String::new(),
+            chat_messages: Vec::new(),
         };
 
         app.log("Lumi Browser v0.3 active (First Public Network + Search + RFC System)");
@@ -287,12 +315,30 @@ impl LumiApp {
         }
 
         self.log(&format!("Navigating to {}", url));
-        let _ = self.net_sender.send((self.active_tab, url.to_string()));
+        let _ = self.net_sender.send(NetworkRequest::Navigate {
+            tab_index: self.active_tab,
+            url_str: url.to_string(),
+        });
     }
 
     fn process_network_responses(&mut self) {
         while let Ok(res) = self.net_receiver.try_recv() {
             match res {
+                NetworkResponse::ChatHistory(messages) => {
+                    self.chat_messages = messages;
+                    if self.active_tab < self.tabs.len() {
+                        let tab = &mut self.tabs[self.active_tab];
+                        if tab.url.contains("chat.lumi") || tab.url.contains("chat.home") {
+                            tab.title = "Encrypted Chat".to_string();
+                            tab.error = None;
+                        }
+                    }
+                    self.log("Loaded chat history over TLS stream");
+                }
+                NetworkResponse::ChatMessage(chat_msg) => {
+                    self.chat_messages.push(chat_msg.clone());
+                    self.log(&format!("New chat message from {}", chat_msg.username));
+                }
                 NetworkResponse::Success {
                     tab_index,
                     url,
@@ -442,7 +488,10 @@ impl eframe::App for LumiApp {
                         tab.history_forward.push(tab.url.clone());
                         tab.url = prev.clone();
                         self.url_input = prev.clone();
-                        let _ = self.net_sender.send((self.active_tab, prev));
+                        let _ = self.net_sender.send(NetworkRequest::Navigate {
+                            tab_index: self.active_tab,
+                            url_str: prev,
+                        });
                     }
                 }
 
@@ -453,7 +502,10 @@ impl eframe::App for LumiApp {
                         tab.history_back.push(tab.url.clone());
                         tab.url = next.clone();
                         self.url_input = next.clone();
-                        let _ = self.net_sender.send((self.active_tab, next));
+                        let _ = self.net_sender.send(NetworkRequest::Navigate {
+                            tab_index: self.active_tab,
+                            url_str: next,
+                        });
                     }
                 }
 
@@ -614,7 +666,91 @@ impl eframe::App for LumiApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             let tab = &self.tabs[self.active_tab];
 
-            if let Some(ref err) = tab.error {
+            if tab.url.contains("chat.lumi") || tab.url.contains("chat.home") {
+                ui.vertical(|ui| {
+                    ui.heading("💬 Encrypted Peer Chat (chat.lumi)");
+                    ui.label(
+                        RichText::new("Real-time bidirectional communication over LMP + TLS")
+                            .color(Color32::GRAY),
+                    );
+                    ui.add_space(4.0);
+                    ui.separator();
+                    ui.add_space(4.0);
+
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new("Username:").strong());
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.chat_username)
+                                .desired_width(140.0),
+                        );
+                    });
+
+                    ui.add_space(8.0);
+                    ui.separator();
+                    ui.add_space(8.0);
+
+                    egui::ScrollArea::vertical()
+                        .max_height(380.0)
+                        .auto_shrink([false; 2])
+                        .stick_to_bottom(true)
+                        .show(ui, |ui| {
+                            if self.chat_messages.is_empty() {
+                                ui.label(
+                                    RichText::new("No chat messages yet. Type a message below to start chatting!")
+                                        .italics()
+                                        .color(Color32::GRAY),
+                                );
+                            } else {
+                                for msg in &self.chat_messages {
+                                    ui.horizontal(|ui| {
+                                        ui.label(
+                                            RichText::new(format!("[{}]", msg.timestamp))
+                                                .size(11.0)
+                                                .color(Color32::DARK_GRAY),
+                                        );
+                                        ui.label(
+                                            RichText::new(format!("{}:", msg.username))
+                                                .strong()
+                                                .color(Color32::from_rgb(100, 180, 255)),
+                                        );
+                                        ui.label(&msg.content);
+                                    });
+                                }
+                            }
+                        });
+
+                    ui.add_space(8.0);
+                    ui.separator();
+                    ui.add_space(8.0);
+
+                    ui.horizontal(|ui| {
+                        let response = ui.add_sized(
+                            Vec2::new(ui.available_width() - 90.0, 26.0),
+                            egui::TextEdit::singleline(&mut self.chat_input)
+                                .hint_text("Type a message to broadcast..."),
+                        );
+
+                        let send_clicked = ui.button("Send 📤").clicked();
+                        let enter_pressed =
+                            response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+
+                        if (send_clicked || enter_pressed) && !self.chat_input.trim().is_empty() {
+                            let content = self.chat_input.trim().to_string();
+                            self.chat_input.clear();
+                            let username = if self.chat_username.trim().is_empty() {
+                                "Anonymous".to_string()
+                            } else {
+                                self.chat_username.trim().to_string()
+                            };
+
+                            let _ = self.net_sender.send(NetworkRequest::SendChatMessage {
+                                username,
+                                content,
+                            });
+                        }
+                    });
+                });
+            } else if let Some(ref err) = tab.error {
                 ui.vertical_centered(|ui| {
                     ui.add_space(40.0);
                     ui.heading(
