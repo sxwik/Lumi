@@ -23,7 +23,7 @@ pub fn render_page(ui: &mut Ui, root: &LumiNode, options: &mut RenderOptions) {
     });
 }
 
-pub fn render_markdown(ui: &mut Ui, markdown: &str, options: &mut RenderOptions) {
+pub fn render_markdown(ui: &mut Ui, markdown: &str, _options: &mut RenderOptions) {
     egui::ScrollArea::vertical().show(ui, |ui| {
         ui.spacing_mut().item_spacing = Vec2::new(0.0, 12.0);
         let max_width = 880.0;

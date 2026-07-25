@@ -65,7 +65,7 @@ fn handle_connection(
             Err(e) => return Err(Box::new(e)),
         };
 
-        let uri = LumiUri::parse(&msg.header.uri).unwrap_or(LumiUri {
+        let uri = msg.header.uri.parse::<LumiUri>().unwrap_or(LumiUri {
             host: "welcome.lumi".to_string(),
             port: 7878,
             path: "/".to_string(),

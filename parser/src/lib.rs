@@ -36,9 +36,13 @@ pub enum ElementType {
     Custom(String),
 }
 
-impl ElementType {
-    pub fn from_str(s: &str) -> Self {
-        match s {
+use std::str::FromStr;
+
+impl FromStr for ElementType {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let element = match s {
             "page" => ElementType::Page,
             "title" => ElementType::Title,
             "heading" => ElementType::Heading,
@@ -57,7 +61,15 @@ impl ElementType {
             "codeblock" => ElementType::CodeBlock,
             "badge" => ElementType::Badge,
             other => ElementType::Custom(other.to_string()),
-        }
+        };
+        Ok(element)
+    }
+}
+
+impl ElementType {
+    pub fn from_tag_name(s: &str) -> Self {
+        s.parse()
+            .unwrap_or_else(|_| ElementType::Custom(s.to_string()))
     }
 }
 
@@ -80,6 +92,11 @@ impl LumiNode {
     }
 
     pub fn get_attr(&self, key: &str) -> Option<&str> {
+        if let ElementType::Custom(ref name) = self.element_type {
+            if name == key {
+                return self.value.as_deref();
+            }
+        }
         self.attributes.get(key).map(|s| s.as_str())
     }
 }
@@ -161,7 +178,7 @@ impl<'a> Parser<'a> {
             }
         };
 
-        let mut node = LumiNode::new(ElementType::from_str(&tag_name));
+        let mut node = LumiNode::new(ElementType::from_tag_name(&tag_name));
 
         self.skip_whitespace_and_comments();
         if let Some(Token::StringLiteral(val)) = self.peek_token()? {
@@ -374,10 +391,10 @@ mod tests {
 
     #[test]
     fn test_element_type_mappings() {
-        assert_eq!(ElementType::from_str("page"), ElementType::Page);
-        assert_eq!(ElementType::from_str("button"), ElementType::Button);
+        assert_eq!(ElementType::from_tag_name("page"), ElementType::Page);
+        assert_eq!(ElementType::from_tag_name("button"), ElementType::Button);
         assert_eq!(
-            ElementType::from_str("custom-widget"),
+            ElementType::from_tag_name("custom-widget"),
             ElementType::Custom("custom-widget".to_string())
         );
     }

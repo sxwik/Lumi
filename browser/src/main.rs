@@ -91,7 +91,7 @@ impl LumiApp {
             let mut current_stream: Option<(String, TcpStream)> = None;
 
             while let Ok((tab_index, url_str)) = req_rx.recv() {
-                match LumiUri::parse(&url_str) {
+                match url_str.parse::<LumiUri>() {
                     Ok(uri) => {
                         println!("[LNS] Resolving domain '{}'...", uri.host);
                         let resolved_addr = match lns.resolve(&uri.host) {
@@ -396,10 +396,8 @@ impl eframe::App for LumiApp {
                         self.url_input = self.tabs[idx].url.clone();
                     }
 
-                    if self.tabs.len() > 1 {
-                        if ui.small_button("x").clicked() {
-                            close_tab_idx = Some(idx);
-                        }
+                    if self.tabs.len() > 1 && ui.small_button("x").clicked() {
+                        close_tab_idx = Some(idx);
                     }
                 }
 
@@ -471,6 +469,13 @@ impl eframe::App for LumiApp {
                     .clicked()
                 {
                     self.show_bookmarks = !self.show_bookmarks;
+                }
+
+                if ui
+                    .selectable_label(self.show_history, "📜 History")
+                    .clicked()
+                {
+                    self.show_history = !self.show_history;
                 }
 
                 if ui
@@ -572,6 +577,25 @@ impl eframe::App for LumiApp {
                     }
                 });
             self.show_bookmarks = show;
+        }
+
+        if self.show_history {
+            let mut show = self.show_history;
+            let history_to_show = self.history.clone();
+            egui::Window::new("Browsing History")
+                .open(&mut show)
+                .show(ctx, |ui| {
+                    if history_to_show.is_empty() {
+                        ui.label("No history recorded yet.");
+                    } else {
+                        for item in history_to_show.iter().rev() {
+                            if ui.button(item).clicked() {
+                                next_nav = Some(item.clone());
+                            }
+                        }
+                    }
+                });
+            self.show_history = show;
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {

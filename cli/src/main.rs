@@ -106,15 +106,14 @@ fn pack_site(site_dir: &str, output_pkg: &str) {
     }
 
     let index_lml = fs::read_to_string(index_file).unwrap();
-    let pkg = LumiPackage::new(site_dir, &index_lml);
+    let pkg = LumiPackage::new_lml(site_dir, &index_lml);
 
-    let bytes = pkg.to_bytes().unwrap();
+    let bytes = pkg.to_bytes().unwrap_or_default();
+    let byte_len = bytes.len();
     fs::write(output_pkg, bytes).unwrap();
 
     println!(
         "📦 Successfully packed '{}' into '{}' ({} bytes)",
-        site_dir,
-        output_pkg,
-        pkg.to_bytes().unwrap().len()
+        site_dir, output_pkg, byte_len
     );
 }

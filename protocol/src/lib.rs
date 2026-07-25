@@ -75,9 +75,13 @@ pub struct LumiUri {
     pub path: String,
 }
 
-impl LumiUri {
-    pub fn parse(input: &str) -> Result<Self, LmpError> {
-        let trimmed = input.trim();
+use std::str::FromStr;
+
+impl FromStr for LumiUri {
+    type Err = LmpError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let trimmed = s.trim();
         if !trimmed.starts_with("lumi://") {
             return Err(LmpError::InvalidScheme);
         }
@@ -96,7 +100,9 @@ impl LumiUri {
 
         Ok(LumiUri { host, port, path })
     }
+}
 
+impl LumiUri {
     pub fn to_string_uri(&self) -> String {
         format!("lumi://{}{}", self.host, self.path)
     }

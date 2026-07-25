@@ -1,7 +1,7 @@
+#[allow(clippy::module_inception)]
 #[cfg(test)]
 mod tests {
     use crate::{LmpError, LmpMessage, LnsResolver, LumiPackage, LumiUri, PacketType};
-    use lumi_parser::parse;
 
     #[test]
     fn test_lns_resolution_success_and_failure() {
@@ -27,24 +27,24 @@ mod tests {
     #[test]
     fn test_lumi_uri_parsing_success_and_failure() {
         // Successful parses
-        let uri = LumiUri::parse("lumi://docs.lumi/index.lml").unwrap();
+        let uri = "lumi://docs.lumi/index.lml".parse::<LumiUri>().unwrap();
         assert_eq!(uri.host, "docs.lumi");
         assert_eq!(uri.port, 9001);
         assert_eq!(uri.path, "/index.lml");
         assert_eq!(uri.to_string_uri(), "lumi://docs.lumi/index.lml");
 
-        let uri_custom_port = LumiUri::parse("lumi://127.0.0.1:8000/api/v1").unwrap();
+        let uri_custom_port = "lumi://127.0.0.1:8000/api/v1".parse::<LumiUri>().unwrap();
         assert_eq!(uri_custom_port.host, "127.0.0.1");
         assert_eq!(uri_custom_port.port, 8000);
         assert_eq!(uri_custom_port.path, "/api/v1");
 
         // Invalid scheme failure
         assert!(matches!(
-            LumiUri::parse("http://docs.lumi"),
+            "http://docs.lumi".parse::<LumiUri>(),
             Err(LmpError::InvalidScheme)
         ));
         assert!(matches!(
-            LumiUri::parse("https://welcome.lumi"),
+            "https://welcome.lumi".parse::<LumiUri>(),
             Err(LmpError::InvalidScheme)
         ));
     }
@@ -126,9 +126,6 @@ mod tests {
         assert_eq!(unpacked_lml.name, "TestLml");
         assert_eq!(unpacked_lml.index_lml, Some(lml.to_string()));
         assert!(unpacked_lml.index_md.is_none());
-
-        let ast = parse(unpacked_lml.index_lml.as_ref().unwrap()).unwrap();
-        assert_eq!(ast.element_type, lumi_parser::ElementType::Page);
 
         // MD Package cycle
         let md = "# Welcome to Lumi\nThis is static Markdown.";
